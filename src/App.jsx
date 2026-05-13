@@ -1,36 +1,54 @@
-import React, { useState, useEffect } from "react";
-import { auth } from "@/lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
-import Login from "./auth/Login";
-import Dashboard from "./dashboards/Dashboard"; // Path-ka cusub
-import { Toaster } from "@/components/ui/sonner";
+import React from "react";
+import { Routes, Route } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 
-function App() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+import Login from "@/auth/Login";
+import DashboardLayout from "@/layouts/DashboardLayout";
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
+// PAGES
+import DashboardHome from "@/pages/DashboardHome";
+
+import EmployeesPage from "@/pages/employees/EmployeesPage";
+
+import UsersList from "@/pages/users/UsersList";
+import CreateUser from "@/pages/users/CreateUser";
+import UserRoles from "@/pages/users/UserRoles";
+
+export default function App() {
+  const { currentUser, loading } = useAuth();
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="h-screen flex items-center justify-center">
+        Loading ERP...
       </div>
     );
   }
 
   return (
-    <main>
-      {user ? <Dashboard user={user} /> : <Login />}
-      <Toaster position="top-right" richColors />
-    </main>
+    <Routes>
+
+      {/* LOGIN */}
+      <Route path="/login" element={<Login />} />
+
+      {/* PROTECTED ERP */}
+      <Route
+        path="/"
+        element={currentUser ? <DashboardLayout /> : <Login />}
+      >
+        {/* DASHBOARD */}
+        <Route index element={<DashboardHome />} />
+
+        {/* EMPLOYEES */}
+        <Route path="employees" element={<EmployeesPage />} />
+       
+
+        {/* USERS */}
+        <Route path="users" element={<UsersList />} />
+        <Route path="users/create" element={<CreateUser />} />
+        <Route path="roles" element={<UserRoles />} />
+      </Route>
+
+    </Routes>
   );
 }
-
-export default App;
