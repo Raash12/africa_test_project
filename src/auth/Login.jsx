@@ -6,7 +6,10 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react"; // Shadcn badhanka loading-ka ah
+import { Loader2 } from "lucide-react"; 
+
+// Import your logo here
+import Logo from "@/assets/logo.jpeg";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -18,19 +21,13 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      // Halkan waxaa toos looga hubinayaa Firebase Console Users
       await signInWithEmailAndPassword(auth, email, password);
-      toast.success("Si guul leh ayaad u soo gashay!");
+      toast.success("Login successful!");
     } catch (error) {
-      console.error("Login Error:", error.code);
-      
-      // Farriimo kooban oo khaladka sharaxaya
       if (error.code === 'auth/invalid-credential') {
-        toast.error("Email ama Password-ka waa khalad!");
-      } else if (error.code === 'auth/too-many-requests') {
-        toast.error("Isku dayo badan! In yar sug.");
+        toast.error("Invalid email or password.");
       } else {
-        toast.error("Khalad ayaa dhacay. Isku day mar kale.");
+        toast.error("An error occurred. Please try again.");
       }
     } finally {
       setIsLoading(false);
@@ -40,20 +37,29 @@ export default function Login() {
   return (
     <div className="flex items-center justify-center min-h-screen bg-slate-50 p-4">
       <Card className="w-full max-w-sm border-t-4 border-blue-600 shadow-lg">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Soo gal</CardTitle>
+        <CardHeader className="space-y-1 flex flex-col items-center">
+          {/* Logo Section */}
+          <div className="mb-4">
+            <img 
+              src={Logo} 
+              alt="Africa Project Logo" 
+              className="h-20 w-auto object-contain rounded-md" 
+            />
+          </div>
+          
+          <CardTitle className="text-2xl font-bold text-center">Sign In</CardTitle>
           <CardDescription className="text-center">
-            Gali xogtaada si aad u gasho Dashboard-ka.
+            Enter your credentials to access your dashboard.
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleLogin}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Email Address</Label>
               <Input 
                 id="email" 
                 type="email" 
-                placeholder="admin@africa.com" 
+                placeholder="e.g. admin@africa.com" 
                 value={email} 
                 onChange={(e) => setEmail(e.target.value)} 
                 disabled={isLoading}
@@ -65,7 +71,7 @@ export default function Login() {
               <Input 
                 id="password" 
                 type="password" 
-                placeholder="••••••••"
+                placeholder="Enter your password"
                 value={password} 
                 onChange={(e) => setPassword(e.target.value)} 
                 disabled={isLoading}
@@ -82,10 +88,10 @@ export default function Login() {
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Hubinta xogta...
+                  Verifying...
                 </>
               ) : (
-                "Gudaha u gal"
+                "Sign In"
               )}
             </Button>
           </CardFooter>
