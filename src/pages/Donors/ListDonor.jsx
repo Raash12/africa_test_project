@@ -43,14 +43,24 @@ export default function ListDonor() {
     setDonorToEdit(null);
   };
 
-  // 🔍 FILTER & SEARCH LOGIC
+  // 🔍 FILTER & SEARCH LOGIC (FIXED FOR PHONE NUMBERS)
   const filteredDonors = useMemo(() => {
     const valid = (donors || []).filter(d => d && d.id && d.donorName);
-    return valid.filter((d) =>
-      d.donorName.toLowerCase().includes(search.toLowerCase()) ||
-      (d.contactPerson && d.contactPerson.toLowerCase().includes(search.toLowerCase())) ||
-      (d.country && d.country.toLowerCase().includes(search.toLowerCase()))
-    );
+    
+    const searchLower = search.toLowerCase();
+
+    return valid.filter((d) => {
+      // U beddel nambarka string si loogu dhex raadiyo (Searchable)
+      const donorPhone = d.phone ? String(d.phone).toLowerCase() : "";
+      
+      return (
+        d.donorName.toLowerCase().includes(searchLower) ||
+        (d.contactPerson && d.contactPerson.toLowerCase().includes(searchLower)) ||
+        (d.country && d.country.toLowerCase().includes(searchLower)) ||
+        // Halkan waxaa lagu daray raadinta nambarka talifanka
+        donorPhone.includes(searchLower)
+      );
+    });
   }, [donors, search]);
 
   // 🔢 SHADCN PAGINATION LOGIC
@@ -85,7 +95,7 @@ export default function ListDonor() {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={18} />
         <input
           type="text"
-          placeholder="Search donors, contact person or country..."
+          placeholder="Search name, country or phone number..."
           className="w-full pl-10 pr-4 py-2.5 border border-slate-200 dark:border-slate-800 rounded-lg focus:ring-2 focus:ring-blue-600 outline-none transition-all bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100"
           value={search}
           onChange={(e) => {
