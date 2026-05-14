@@ -13,7 +13,8 @@ import { db } from "@/lib/firebase";
 const projectRef = collection(db, "projects");
 
 export const createProject = async (data) => {
-  return await addDoc(projectRef, {...data,
+  return await addDoc(projectRef, {
+    ...data,
     createdAt: serverTimestamp(),
   });
 };
@@ -34,6 +35,5 @@ export const updateProject = async (id, data) => {
 
 export const deleteProject = async (id) => {
   const projectDoc = doc(db, "projects", id);
-
   return await deleteDoc(projectDoc);
 };

@@ -1,6 +1,5 @@
 import path from "path"
 import { fileURLToPath } from "url"
-import { defineConfig } from 'vite'
 import react, { reactCompilerPreset } from '@vitejs/plugin-react'
 import babel from '@rolldown/plugin-babel'
 import tailwindcss from '@tailwindcss/vite'
@@ -8,8 +7,7 @@ import tailwindcss from '@tailwindcss/vite'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-// https://vite.dev/config/
-export default defineConfig({
+export default {
   plugins: [
     react(),
     tailwindcss(),
@@ -21,5 +19,19 @@ export default defineConfig({
     },
     extensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json']
   },
-  
-})
+  server: {
+    host: '127.0.0.1', // ✅ Waxay ku khasbaysaa nidaamka inuu isticmaalo IP toos ah halkii uu localhost dhihi lahaa
+    port: 5173,
+    strictPort: true,
+    watch: {
+      usePolling: true,
+      interval: 100,
+    },
+    hmr: {
+      protocol: 'ws',     // ✅ Dejinta WebSocket ee Brave u baahan yahay
+      host: '127.0.0.1',
+      port: 5173,
+      overlay: true,
+    }
+  }
+}
