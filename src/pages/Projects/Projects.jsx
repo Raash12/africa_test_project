@@ -39,7 +39,11 @@ const getEmptyForm = () => ({
   endDate: "",
 });
 
-const ITEM_PROJECTS = ["Xoolo", "Xoolo Irmaan", "Iftar Program"];
+// 📦 Mashaariicda u baahan in la doorto Item Inventory ah
+const SHOW_ITEM_DROPDOWN = ["Xoolo", "Xoolo Irmaan", "Iftar Program"];
+
+// 🔢 Mashaariicda guud ahaan u furaaya Quantity iyo Unit Price (Dhammaan mashaariicda)
+const SHOW_NUMERIC_FIELDS = ["Xoolo", "Xoolo Irmaan", "Iftar Program", "Ceel Biyood", "Kurbaan/Carafo"];
 
 export default function Projects() {
   const { donors = [] } = useDonors();
@@ -51,9 +55,10 @@ export default function Projects() {
   const [form, setForm] = useState(getEmptyForm());
   const [search, setSearch] = useState("");
 
-  const showItemSection = ITEM_PROJECTS.includes(form.projectName);
+  const hasItemDropdown = SHOW_ITEM_DROPDOWN.includes(form.projectName);
+  const hasNumericFields = SHOW_NUMERIC_FIELDS.includes(form.projectName);
 
-  // 🔥 XISAABINTA BUDGET-KA OON INF-LOOP KEENAYN (Calculated on the fly)
+  // 🔥 XISAABINTA BUDGET-KA (Calculated on the fly)
   const qty = Number(form.quantity) || 0;
   const price = Number(form.unitPrice) || 0;
   const totalBudget = qty * price;
@@ -74,7 +79,6 @@ export default function Projects() {
         return;
       }
 
-      // Ku dar xisaabta budget-ka payload-ka ka hor intaanan loo dirin Firebase
       const finalPayload = cleanForFirestore({
         ...form,
         totalBudget,
@@ -134,7 +138,6 @@ export default function Projects() {
           <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Manage and Track Africa Ihsan Aid Projects</p>
         </div>
 
-        {/* Badhanka wuxuu leeyahay onClick toos ah oo ka madax banaan DialogTrigger */}
         <Button 
           type="button"
           onClick={() => setIsOpen(true)}
@@ -212,37 +215,42 @@ export default function Projects() {
                 </Select>
               </div>
 
-              {/* ITEM SECTION */}
-              {showItemSection && (
+              {/* DYNAMIC INPUT SECTION */}
+              {hasNumericFields && (
                 <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800 space-y-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Select Inventory Item</label>
-                    <Select
-                      value={form.itemId}
-                      onValueChange={(value) => {
-                        const item = items?.find((i) => i.id === value);
-                        if (item) {
-                          setForm((prev) => ({
-                            ...prev,
-                            itemId: item.id,
-                            itemName: item.itemName,
-                          }));
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100">
-                        <SelectValue placeholder="Select Item" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">
-                        {items?.map((item) => (
-                          <SelectItem key={item.id} value={item.id}>
-                            {item.itemName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  
+                  {/* ITEM DROPDOWN: Kaliya haddii uu yahay mashruuc inventory leh (Waa laga qariyay Ceel Biyood) */}
+                  {hasItemDropdown && (
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Select Inventory Item</label>
+                      <Select
+                        value={form.itemId}
+                        onValueChange={(value) => {
+                          const item = items?.find((i) => i.id === value);
+                          if (item) {
+                            setForm((prev) => ({
+                              ...prev,
+                              itemId: item.id,
+                              itemName: item.itemName,
+                            }));
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100">
+                          <SelectValue placeholder="Select Item" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">
+                          {items?.map((item) => (
+                            <SelectItem key={item.id} value={item.id}>
+                              {item.itemName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
+                  {/* NUMERIC FIELDS: Mar kasta way soo baxayaan marka foomku furmo */}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="text-xs font-medium text-slate-500">Quantity</label>
@@ -250,7 +258,7 @@ export default function Projects() {
                         type="number"
                         value={form.quantity}
                         onChange={(e) => setForm((prev) => ({ ...prev, quantity: e.target.value }))}
-                        className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                        className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100"
                         placeholder="0"
                       />
                     </div>
@@ -260,7 +268,7 @@ export default function Projects() {
                         type="number"
                         value={form.unitPrice}
                         onChange={(e) => setForm((prev) => ({ ...prev, unitPrice: e.target.value }))}
-                        className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                        className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100"
                         placeholder="0.00"
                       />
                     </div>
@@ -330,10 +338,16 @@ export default function Projects() {
                   <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                     <td className="p-4">
                       <span className="font-semibold text-slate-800 dark:text-slate-200 block">{p.projectName}</span>
-                      {p.itemName && (
+                      {p.itemName ? (
                         <span className="inline-flex items-center px-2 py-0.5 mt-1 rounded text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/50">
                           {p.itemName} × {p.quantity}
                         </span>
+                      ) : (
+                        p.quantity > 0 && (
+                          <span className="inline-flex items-center px-2 py-0.5 mt-1 rounded text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                            Qty: {p.quantity}
+                          </span>
+                        )
                       )}
                     </td>
                     <td className="p-4 font-medium text-slate-600 dark:text-slate-400">{p.donorName}</td>
