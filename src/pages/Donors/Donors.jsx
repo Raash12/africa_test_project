@@ -1,5 +1,10 @@
 import { useState, useMemo } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -7,315 +12,210 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Edit2, Trash2, Plus } from "lucide-react";
+import { Edit2, Trash2, Plus, UserCircle, Search, Globe } from "lucide-react";
 
 import useDonors from "@/hooks/useDonors";
-import useProjects from "@/hooks/useProjects";
-import useItems from "@/hooks/useItems";
+import { createDonor, updateDonor, deleteDonor } from "@/services/donors/donorService";
 
-import {
-  createProject,
-  updateProject,
-  deleteProject,
-} from "@/services/projects/projectService";
+const getCountryList = () => {
+  const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
+  const isoCodes = ["TR", "SO", "AF", "AX", "AL", "DZ", "AS", "AD", "AO", "AI", "AQ", "AG", "AR", "AM", "AW", "AU", "AT", "AZ", "BS", "BH", "BD", "BB", "BY", "BE", "BZ", "BJ", "BM", "BT", "BO", "BQ", "BA", "BW", "BV", "BR", "IO", "BN", "BG", "BF", "BI", "CV", "KH", "CM", "CA", "KY", "CF", "TD", "CL", "CN", "CX", "CC", "CO", "KM", "CD", "CG", "CK", "CR", "CI", "HR", "CU", "CW", "CY", "CZ", "DK", "DJ", "DM", "DO", "EC", "EG", "SV", "GQ", "ER", "EE", "SZ", "ET", "FK", "FO", "FJ", "FI", "FR", "GF", "PF", "TF", "GA", "GM", "GE", "DE", "GH", "GI", "GR", "GL", "GD", "GP", "GU", "GT", "GG", "GN", "GW", "GY", "HT", "HM", "VA", "HN", "HK", "HU", "IS", "IN", "ID", "IR", "IQ", "IE", "IM", "IL", "IT", "JM", "JP", "JE", "JO", "KZ", "KE", "KI", "KP", "KR", "KW", "KG", "LA", "LV", "LB", "LS", "LR", "LY", "LI", "LT", "LU", "MO", "MG", "MW", "MY", "MV", "ML", "MT", "MH", "MQ", "MR", "MU", "YT", "MX", "FM", "MD", "MC", "MN", "ME", "MS", "MA", "MZ", "MM", "NA", "NR", "NP", "NL", "NC", "NZ", "NI", "NE", "NG", "NU", "NF", "MP", "NO", "OM", "PK", "PW", "PS", "PA", "PG", "PY", "PE", "PH", "PN", "PL", "PT", "PR", "QA", "RE", "RO", "RU", "RW", "BL", "SH", "KN", "LC", "MF", "PM", "VC", "WS", "SM", "ST", "SA", "SN", "RS", "SC", "SL", "SG", "SX", "SK", "SI", "SB", "SS", "ES", "LK", "SD", "SR", "SJ", "SE", "CH", "SY", "TW", "TJ", "TZ", "TH", "TL", "TG", "TK", "TO", "TT", "TN", "UA", "AE", "GB", "US", "UM", "UY", "UZ", "VU", "VE", "VN", "VG", "VI", "WF", "EH", "YE", "ZM", "ZW"];
 
-const getEmptyForm = () => ({
-  donorId: "",
-  donorName: "",
-  projectName: "",
-  itemId: "",
-  itemName: "",
-  quantity: "",
-  unitPrice: "",
-  startDate: "",
-  endDate: "",
-});
+  return isoCodes.map(code => ({
+    code,
+    name: regionNames.of(code),
+    flag: code.toUpperCase().replace(/./g, char => String.fromCodePoint(char.charCodeAt(0) + 127397))
+  })).sort((a, b) => a.name.localeCompare(b.name));
+};
 
-const ITEM_PROJECTS = ["Xoolo", "Xoolo Irmaan", "Iftar Program"];
+const ALL_COUNTRIES = getCountryList();
 
-export default function Projects() {
-  const { donors } = useDonors();
-  const { items } = useItems();
-  const { projects, refreshProjects } = useProjects();
-
+export default function Donors() {
+  const { donors, refreshDonors } = useDonors();
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState(getEmptyForm());
+  const [countrySearch, setCountrySearch] = useState("");
 
-  const showItemSection = ITEM_PROJECTS.includes(form.projectName);
-
-  // 🔥 DERIVED VALUES (NO useEffect = NO BUGS)
-  const qty = Number(form.quantity) || 0;
-  const price = Number(form.unitPrice) || 0;
-
-  const totalBudget = qty * price;
-  const advancePayment = totalBudget / 2;
-  const remainingBalance = totalBudget / 2;
-
-  // clean payload safely
-  const cleanPayload = (data) => ({
-    ...data,
-    quantity: Number(data.quantity) || 0,
-    unitPrice: Number(data.unitPrice) || 0,
-    totalBudget,
-    advancePayment,
-    remainingBalance,
+  const [form, setForm] = useState({
+    donorName: "",
+    contactPerson: "",
+    phone: "",
+    email: "",
+    country: "Turkey",
+    notes: "",
   });
+
+  const filteredCountries = useMemo(() => {
+    return ALL_COUNTRIES.filter(c => 
+      c.name.toLowerCase().includes(countrySearch.toLowerCase())
+    );
+  }, [countrySearch]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!form.donorId || !form.projectName) {
-      alert("Select Donor and Project Type");
-      return;
+    if (editingId) {
+      await updateDonor(editingId, form);
+    } else {
+      await createDonor(form);
     }
-
-    try {
-      const payload = cleanPayload(form);
-
-      if (editingId) {
-        await updateProject(editingId, payload);
-      } else {
-        await createProject(payload);
-      }
-
-      await refreshProjects(); // ✅ FIXED
-      closeModal();
-    } catch (error) {
-      console.error("PROJECT SAVE ERROR:", error);
-      alert(error.message);
-    }
+    closeModal();
+    refreshDonors();
   };
 
-  const handleEdit = (project) => {
-    setEditingId(project.id);
-    setForm({ ...getEmptyForm(), ...project });
+  const handleAddNew = () => {
+    setEditingId(null);
+    setForm({ donorName: "", contactPerson: "", phone: "", email: "", country: "Turkey", notes: "" });
+    setIsOpen(true);
+  };
+
+  const handleEdit = (donor) => {
+    setForm(donor);
+    setEditingId(donor.id);
     setIsOpen(true);
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Delete this project?")) return;
-
-    await deleteProject(id);
-    await refreshProjects();
+    if (window.confirm("Delete this partner?")) {
+      await deleteDonor(id);
+      refreshDonors();
+    }
   };
 
   const closeModal = () => {
     setIsOpen(false);
     setEditingId(null);
-    setForm(getEmptyForm());
+    setCountrySearch("");
+    setForm({ donorName: "", contactPerson: "", phone: "", email: "", country: "Turkey", notes: "" });
   };
 
-  const validProjects = useMemo(() => {
-    return (projects || []).filter(
-      (p) => p?.id && p?.projectName && p?.donorName
-    );
-  }, [projects]);
-
   return (
-    <div className="p-4 space-y-6">
-
-      {/* HEADER */}
+    <div className="space-y-6 p-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Project Management</h2>
-
-        <Dialog open={isOpen} onOpenChange={(v) => !v && closeModal()}>
+        <h2 className="text-2xl font-bold text-slate-800">Donors Directory</h2>
+        
+        <Dialog open={isOpen} onOpenChange={(val) => !val && closeModal()}>
           <DialogTrigger asChild>
-            <Button className="bg-[#0088D1] gap-2">
-              <Plus size={18} /> New Project
+            <Button className="bg-[#0088D1] hover:bg-[#0077b6] text-white gap-2" onClick={handleAddNew}>
+              <Plus size={18} /> Add New Donor
             </Button>
           </DialogTrigger>
-
-          <DialogContent className="sm:max-w-[550px]">
+          <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
-              <DialogTitle>
-                {editingId ? "Edit Project" : "New Project"}
-              </DialogTitle>
+              <DialogTitle>{editingId ? "Edit Partner Profile" : "Register New Donor"}</DialogTitle>
             </DialogHeader>
-
-            <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
-
-              {/* DONOR */}
-              <div className="col-span-2">
-                <label className="text-xs font-bold">Donor</label>
-                <Select
-                  value={form.donorId}
-                  onValueChange={(value) => {
-                    const donor = donors.find((d) => d.id === value);
-                    if (donor) {
-                      setForm((prev) => ({
-                        ...prev,
-                        donorId: donor.id,
-                        donorName: donor.donorName,
-                      }));
-                    }
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Donor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {donors?.map((d) => (
-                      <SelectItem key={d.id} value={d.id}>
-                        {d.donorName}
-                      </SelectItem>
+            <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4 pt-4">
+              <Input
+                placeholder="Organization Name"
+                className="col-span-2 border-slate-200"
+                value={form.donorName}
+                onChange={(e) => setForm({ ...form, donorName: e.target.value })}
+                required
+              />
+              <Input
+                placeholder="Contact Person"
+                className="border-slate-200"
+                value={form.contactPerson}
+                onChange={(e) => setForm({ ...form, contactPerson: e.target.value })}
+              />
+              <div className="space-y-1">
+                <div className="relative">
+                  <select
+                    className="flex h-10 w-full rounded-md border border-slate-200 bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-[#0088D1] outline-none appearance-none"
+                    value={form.country}
+                    onChange={(e) => setForm({ ...form, country: e.target.value })}
+                  >
+                    {filteredCountries.map((c) => (
+                      <option key={c.code} value={c.name}>
+                        {c.flag} {c.name}
+                      </option>
                     ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* PROJECT TYPE */}
-              <div className="col-span-2">
-                <label className="text-xs font-bold">Project Type</label>
-                <Select
-                  value={form.projectName}
-                  onValueChange={(val) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      projectName: val,
-                      itemId: "",
-                      itemName: "",
-                      quantity: "",
-                      unitPrice: "",
-                    }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose Project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Xoolo">Xoolo</SelectItem>
-                    <SelectItem value="Kurbaan/Carafo">Kurbaan/Carafo</SelectItem>
-                    <SelectItem value="Xoolo Irmaan">Xoolo Irmaan</SelectItem>
-                    <SelectItem value="Ceel Biyood">Ceel Biyood</SelectItem>
-                    <SelectItem value="Iftar Program">Iftar Program</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* ITEM SECTION */}
-              {showItemSection && (
-                <>
-                  <div className="col-span-2">
-                    <label className="text-xs font-bold">Item</label>
-                    <Select
-                      value={form.itemId}
-                      onValueChange={(value) => {
-                        const item = items.find((i) => i.id === value);
-                        if (item) {
-                          setForm((prev) => ({
-                            ...prev,
-                            itemId: item.id,
-                            itemName: item.name,
-                          }));
-                        }
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Item" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {items?.map((item) => (
-                          <SelectItem key={item.id} value={item.id}>
-                            {item.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <Input
-                    type="number"
-                    value={form.quantity}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        quantity: e.target.value,
-                      }))
-                    }
-                    placeholder="Quantity"
+                  </select>
+                  <Globe className="absolute right-3 top-2.5 text-slate-400 pointer-events-none" size={16} />
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-2 top-2.5 text-slate-400" size={12} />
+                  <input
+                    type="text"
+                    placeholder="Search country..."
+                    className="w-full text-[10px] pl-6 pr-2 py-1.5 border rounded bg-slate-50 focus:outline-none focus:bg-white"
+                    value={countrySearch}
+                    onChange={(e) => setCountrySearch(e.target.value)}
                   />
-
-                  <Input
-                    type="number"
-                    value={form.unitPrice}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        unitPrice: e.target.value,
-                      }))
-                    }
-                    placeholder="Unit Price"
-                  />
-                </>
-              )}
-
-              {/* TOTALS (DERIVED LIVE) */}
-              <div className="col-span-2 bg-black text-white p-4 rounded-lg">
-                <p>Total: ${totalBudget}</p>
-                <p>Advance: ${advancePayment}</p>
-                <p>Balance: ${remainingBalance}</p>
+                </div>
               </div>
-
-              <div className="col-span-2 flex justify-end gap-2">
-                <Button type="button" onClick={closeModal}>
-                  Cancel
+              <Input
+                placeholder="Phone Number"
+                className="border-slate-200"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              />
+              <Input
+                placeholder="Email Address"
+                className="border-slate-200"
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+              />
+              <Input
+                placeholder="Notes / Reference"
+                className="col-span-2 border-slate-200"
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              />
+              <div className="col-span-2 flex justify-end gap-3 mt-4">
+                <Button type="button" variant="outline" onClick={closeModal}>Cancel</Button>
+                <Button type="submit" className="bg-[#0088D1] hover:bg-[#0077b6]">
+                  {editingId ? "Update Profile" : "Save Partner"}
                 </Button>
-                <Button type="submit">Save</Button>
               </div>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* TABLE */}
-      <Card>
+      <Card className="shadow-sm border-slate-200">
+        <CardHeader className="bg-slate-50/50 border-b">
+          <CardTitle className="text-[#0088D1] text-lg flex items-center gap-2">
+            <UserCircle size={20} className="text-slate-400" /> Registered Partners
+          </CardTitle>
+        </CardHeader>
         <CardContent className="p-0">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-100 text-left">
-                <th className="p-3">Project</th>
-                <th>Donor</th>
-                <th>Budget</th>
-                <th>Balance</th>
-                <th className="text-right">Actions</th>
+              <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
+                <th className="text-left p-4 font-semibold">Partner</th>
+                <th className="text-left p-4 font-semibold">Location</th>
+                <th className="text-left p-4 font-semibold">Contact Info</th>
+                <th className="text-right p-4 font-semibold">Actions</th>
               </tr>
             </thead>
-
-            <tbody>
-              {validProjects.map((p) => (
-                <tr key={p.id} className="border-t">
-                  <td className="p-3">
-                    {p.projectName}
-                    {p.itemName && (
-                      <div className="text-xs text-gray-500">
-                        {p.itemName} × {p.quantity}
-                      </div>
-                    )}
+            <tbody className="divide-y divide-slate-100">
+              {donors.map((donor) => (
+                <tr key={donor.id} className="hover:bg-slate-50/80 transition-colors group">
+                  <td className="p-4">
+                    <div className="font-bold text-slate-800">{donor.donorName}</div>
+                    <div className="text-xs text-slate-500">{donor.contactPerson || 'No contact person'}</div>
                   </td>
-                  <td>{p.donorName}</td>
-                  <td>${p.totalBudget}</td>
-                  <td>${p.remainingBalance}</td>
-                  <td className="text-right">
-                    <Button size="icon" onClick={() => handleEdit(p)}>
-                      <Edit2 size={14} />
-                    </Button>
-                    <Button
-                      size="icon"
-                      className="text-red-500"
-                      onClick={() => handleDelete(p.id)}
-                    >
-                      <Trash2 size={14} />
-                    </Button>
+                  <td className="p-4">
+                    <span className="flex items-center gap-2 bg-white border border-slate-100 px-2 py-1 rounded-full w-fit shadow-xs">
+                      {ALL_COUNTRIES.find(c => c.name === donor.country)?.flag} {donor.country}
+                    </span>
+                  </td>
+                  <td className="p-4">
+                    <div className="text-xs font-medium text-slate-700">{donor.phone}</div>
+                    <div className="text-xs text-[#0088D1]">{donor.email}</div>
+                  </td>
+                  <td className="p-4 text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-600 hover:bg-blue-50" onClick={() => handleEdit(donor)}>
+                        <Edit2 size={14} />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-8 w-8 text-red-500 hover:bg-red-50" onClick={() => handleDelete(donor.id)}>
+                        <Trash2 size={14} />
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
