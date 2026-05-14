@@ -1,173 +1,194 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { getUsers, deleteUser } from "@/services/userService";
 import { getEmployees } from "@/services/employees/employeeService";
-
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-
-import {
-  Dialog,
-  DialogContent,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-
-import { Plus, Search } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Plus, Search, Edit2, Trash2 } from "lucide-react";
 import CreateUserForm from "./CreateUser";
+
+// SHADCN PAGINATION IMPORT
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 export default function UsersList() {
   const [users, setUsers] = useState([]);
   const [employees, setEmployees] = useState([]);
-  const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [open, setOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
 
-  // LOAD USERS + EMPLOYEES
-  const load = async () => {
-    const [userData, empData] = await Promise.all([
-      getUsers(),
-      getEmployees(),
-    ]);
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5; // Waxaad u beddeli kartaa 8 haddaad rabto
 
-    setUsers(userData);
-    setEmployees(empData);
+  const fetchData = async () => {
+    const [u, e] = await Promise.all([getUsers(), getEmployees()]);
+    setUsers(u);
+    setEmployees(e);
   };
 
   useEffect(() => {
-    load();
+    fetchData();
   }, []);
 
-  const remove = async (id) => {
+  const filteredData = useMemo(() => {
+    setCurrentPage(1);
+    return users
+      .map(u => ({
+        ...u,
+        fullName: employees.find(e => e.id === u.employeeId)?.fullName || null
+      }))
+      .filter(u => u.fullName && u.fullName.toLowerCase().includes(search.toLowerCase()));
+  }, [users, employees, search]);
+
+  // Xisaabinta bogagga guud (ugu yaraan waa 1)
+  const totalPages = Math.max(Math.ceil(filteredData.length / itemsPerPage), 1);
+  
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredData.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredData, currentPage]);
+
+  const handleDelete = async (id) => {
+    if (!confirm("Are you sure?")) return;
     await deleteUser(id);
-    load();
+    setUsers(users.filter(u => u.id !== id));
   };
 
-  // JOIN USER + EMPLOYEE DATA
-  const mergedData = users.map((u) => {
-    const emp = employees.find((e) => e.id === u.employeeId);
-
-    return {
-      ...u,
-      fullName: emp?.fullName || "Unknown",
-      phone: emp?.phone || "-",
-      department: emp?.department || "-",
-      position: emp?.position || "-",
-      salary: emp?.salary || "-",
-    };
-  });
-
-  // FILTER SEARCH
-  const filtered = mergedData.filter((u) =>
-    u.fullName.toLowerCase().includes(search.toLowerCase()) ||
-    u.email.toLowerCase().includes(search.toLowerCase())
-  );
-
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-
-      {/* HEADER */}
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-blue-700">
-          Users Management
-        </h1>
-
-        <Dialog open={open} onOpenChange={setOpen}>
+    <div className="p-6 space-y-6 bg-slate-50 dark:bg-slate-950 min-h-screen text-slate-900 dark:text-slate-100 transition-colors duration-300">
+      
+      {/* HEADER BANNER - Africa Ihsan Aid Navy Style */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-xl border-l-8 border-[#1e3a8a] dark:border-blue-500 shadow-sm transition-all">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50 uppercase tracking-tight">System Users</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Manage User Accounts & Permissions</p>
+        </div>
+        <Dialog open={open} onOpenChange={(val) => { setOpen(val); if(!val) setSelectedUser(null); }}>
           <DialogTrigger asChild>
-            <Button className="bg-blue-600 hover:bg-green-600 flex gap-2">
-              <Plus size={18} />
-              Add User
+            <Button onClick={() => setSelectedUser(null)} className="bg-[#1e3a8a] dark:bg-blue-600 hover:bg-[#172554] dark:hover:bg-blue-700 text-white px-6 shadow-md border-none transition-all">
+              <Plus size={18} className="mr-2" /> Add User
             </Button>
           </DialogTrigger>
-
-          <DialogContent className="max-w-lg">
-            <CreateUserForm
-              onSuccess={() => {
-                setOpen(false);
-                load();
-              }}
+          <DialogContent className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+            <DialogHeader>
+              <DialogTitle className="text-[#1e3a8a] dark:text-blue-400">{selectedUser ? "Edit" : "Add"} User</DialogTitle>
+            </DialogHeader>
+            <CreateUserForm 
+                employees={employees} 
+                editData={selectedUser} 
+                onSuccess={() => { setOpen(false); fetchData(); }} 
             />
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* SEARCH BAR */}
-      <div className="flex items-center gap-2 mb-4 bg-white p-3 rounded-lg shadow">
-        <Search size={18} className="text-gray-400" />
-        <input
-          placeholder="Search by name or email..."
-          className="w-full outline-none"
+      {/* SEARCH BOX */}
+      <div className="relative max-w-md shadow-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={18} />
+        <input 
+          type="text"
+          className="w-full pl-10 pr-4 py-2.5 border border-slate-200 dark:border-slate-800 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-blue-600 transition-all" 
+          placeholder="Search users..." 
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => setSearch(e.target.value)} 
         />
       </div>
 
       {/* DATA TABLE */}
-      <div className="bg-white rounded-xl shadow overflow-hidden">
-
-        <table className="w-full text-sm">
-          <thead className="bg-blue-50 text-blue-700">
-            <tr>
-              <th className="p-3 text-left">Name</th>
-              <th>Email</th>
-              <th>Phone</th>
-              <th>Department</th>
-              <th>Role</th>
-              <th>Status</th>
-              <th>Created</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {filtered.map((u) => (
-              <tr
-                key={u.id}
-                className="border-t hover:bg-gray-50 transition"
-              >
-                <td className="p-3 font-medium">
-                  {u.fullName}
-                </td>
-
-                <td>{u.email}</td>
-                <td>{u.phone}</td>
-                <td>{u.department}</td>
-
-                <td>
-                  <Badge className="bg-green-600">
-                    {u.role}
-                  </Badge>
-                </td>
-
-                <td>
-                  {u.isActive ? (
-                    <span className="text-green-600 font-medium">
-                      Active
-                    </span>
-                  ) : (
-                    <span className="text-red-500">
-                      Disabled
-                    </span>
-                  )}
-                </td>
-
-                <td className="text-gray-500 text-xs">
-                  {u.createdAt?.toDate?.()?.toLocaleString?.() ||
-                    "—"}
-                </td>
-
-                <td>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => remove(u.id)}
-                  >
-                    Delete
-                  </Button>
-                </td>
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-[#1e3a8a] dark:bg-slate-800 text-white dark:text-slate-100 text-xs uppercase tracking-widest font-bold">
+              <tr>
+                <th className="p-4">Name</th>
+                <th className="p-4">Role</th>
+                <th className="p-4">Status</th>
+                <th className="p-4 text-center">Actions</th>
               </tr>
-            ))}
-          </tbody>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {paginatedData.map((u) => (
+                <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                  <td className="p-4 font-semibold text-slate-800 dark:text-slate-200">{u.fullName}</td>
+                  <td className="p-4 text-sm text-slate-600 dark:text-slate-300">{u.role}</td>
+                  <td className="p-4 text-sm">
+                    <span className={`px-2.5 py-0.5 rounded-full font-bold text-xs border ${
+                      u.isActive 
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800" 
+                        : "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800"
+                    }`}>
+                      {u.isActive ? "Active" : "Inactive"}
+                    </span>
+                  </td>
+                  <td className="p-4 text-center">
+                    <div className="flex justify-center gap-2">
+                      <button 
+                        onClick={() => { setSelectedUser(u); setOpen(true); }} 
+                        className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-all"
+                      >
+                        <Edit2 size={16}/>
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(u.id)} 
+                        className="p-2 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-all"
+                      >
+                        <Trash2 size={16}/>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        
+        {paginatedData.length === 0 && (
+          <div className="p-6 text-center text-slate-400 dark:text-slate-500 text-sm">No users found.</div>
+        )}
 
-        </table>
+        {/* SHADCN PAGINATION SECTION (Had iyo jeer wuu muuqanayaa sxb) */}
+        <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
+          <Pagination>
+            <PaginationContent className="cursor-pointer">
+              <PaginationItem>
+                <PaginationPrevious 
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  className={`bg-white dark:bg-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700 ${currentPage === 1 ? "opacity-30 pointer-events-none" : ""}`}
+                />
+              </PaginationItem>
+              
+              {[...Array(totalPages)].map((_, i) => (
+                <PaginationItem key={i}>
+                  <PaginationLink 
+                    isActive={currentPage === i + 1}
+                    onClick={() => setCurrentPage(i + 1)}
+                    className={currentPage === i + 1 
+                      ? "bg-[#1e3a8a] dark:bg-blue-600 text-white border-[#1e3a8a] dark:border-blue-600" 
+                      : "bg-white dark:bg-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700"}
+                  >
+                    {i + 1}
+                  </PaginationLink>
+                </PaginationItem>
+              ))}
+
+              <PaginationItem>
+                <PaginationNext 
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  className={`bg-white dark:bg-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700 ${currentPage === totalPages ? "opacity-30 pointer-events-none" : ""}`}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
       </div>
+
     </div>
   );
 }
