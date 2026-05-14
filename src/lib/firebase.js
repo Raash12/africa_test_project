@@ -1,10 +1,9 @@
-// Import functions ka aad u baahan tahay
-import { initializeApp } from "firebase/app";
+// Import functions
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getAnalytics } from "firebase/analytics";
 
-// Xogtaada cusub ee Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyCMeNDesnMkZusNOPcGGjjsHRTY9HP8WDo",
   authDomain: "africa-e809d.firebaseapp.com",
@@ -15,10 +14,13 @@ const firebaseConfig = {
   measurementId: "G-81CJ4F2RLT"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// XALKA: Hubi haddii App-ku horey u jiray ka hor intaanad initialize samayn
+// Tani waxay ka hortagaysaa in React uu crash noqdo markaad code-ka update garayso
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
-// Export services si loogu isticmaalo components-ka kale
+// Export services
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-export const analytics = getAnalytics(app);
+export const analytics = typeof window !== 'undefined' ? getAnalytics(app) : null;
+
+export default app;

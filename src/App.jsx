@@ -12,8 +12,8 @@ import ItemsPage from "@/pages/item/Items";
 import UsersList from "@/pages/users/UsersList";
 import CreateUser from "@/pages/users/CreateUser";
 import UserRoles from "@/pages/users/UserRoles";
-import Donors from "@/pages/donors/Donors";
-import Projects from "@/pages/projects/Projects";
+import Donors from "@/pages/donors/ListDonor";
+import Projects from "@/pages/projects/ListProject";
 
 // 🛡️ PROTECTED ROUTE COMPONENT (Wuxuu xalliyaa is-diidmada Brave iyo Chrome)
 function ProtectedRoute({ children }) {
