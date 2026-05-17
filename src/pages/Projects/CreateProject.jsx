@@ -7,6 +7,13 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select"; // 🌟 Lagu daray shadcn/ui select
 import { FolderKanban } from "lucide-react";
 
 export default function CreateProject({ 
@@ -21,7 +28,7 @@ export default function CreateProject({
   const [form, setForm] = useState({
     name: "",
     grantId: "",
-    grantTotalAmount: 0,       
+    grantTotalAmount: 0,      
     quantity: "",              
     unitPrice: "",             
     totalBudget: 0,            
@@ -70,11 +77,9 @@ export default function CreateProject({
   // LABADA DIGNIIN (VALIDATIONS)
   const isBudgetExceeded = form.totalBudget > form.grantTotalAmount;
   
-  // LOGIC-GA CUSUB: Advance-ku waa inuu ka yaryahay Total Budget (Lama mid noqon karo, kamana badnaan karo -> Net-ku eber ma noqon karo)
   const advanceValue = parseFloat(form.advancePayment) || 0;
   const isAdvanceExceeded = advanceValue > 0 && advanceValue >= form.totalBudget;
 
-  // Is-hortaagga Advance Payment input-ka haddii miisaaniyadda guud ay eber tahay ama saqafka grant-iga la gaaray
   const isAdvanceDisabled = form.totalBudget === 0 || (form.totalBudget > 0 && (form.grantTotalAmount - form.totalBudget <= 0));
 
   // 3. Load ama Reset Form
@@ -83,7 +88,7 @@ export default function CreateProject({
       if (projectToEdit) {
         setForm(projectToEdit);
       } else {
-        const defaultGrantId = grants && grants.length > 0 ? grants[0].id : "";
+        const defaultGrantId = grants && grants.length > 0 ? String(grants[0].id) : "";
         const defaultGrant = grants && grants.length > 0 ? grants[0] : null;
         const defaultAmount = defaultGrant ? parseFloat(defaultGrant.amount) || 0 : 0;
 
@@ -137,8 +142,7 @@ export default function CreateProject({
     refreshProjects();
   };
 
-  // Badanka wuxuu xirmayaa haddii labada khalad midkood jiro
-  const isSubmitDisabled = isBudgetExceeded || isAdvanceExceeded || !form.name || !form.quantity || !form.unitPrice;
+  const isSubmitDisabled = isBudgetExceeded || isAdvanceExceeded || !form.name || !form.quantity || !form.unitPrice || !form.grantId;
 
   return (
     <Dialog open={isOpen} onOpenChange={(val) => !val && onClose()}>
@@ -151,25 +155,27 @@ export default function CreateProject({
         
         <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-x-3 gap-y-2 pt-2">
           
-          {/* Select Funding Grant */}
-          <div className="col-span-2 space-y-0.5">
+          {/* 🌟 Professional Select Qeybta Grant-iga */}
+          <div className="col-span-2 space-y-1">
             <label className="text-[11px] font-semibold text-slate-500 uppercase">Select Funding Grant</label>
-            <div className="relative">
-              <select
-                className="flex h-9 w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1 text-xs focus:ring-2 focus:ring-blue-600 outline-none appearance-none text-slate-900 dark:text-slate-100 font-medium"
-                value={form.grantId}
-                onChange={(e) => setForm({ ...form, grantId: e.target.value })}
-                required
-              >
-                <option value="" disabled>-- Select Connected Grant --</option>
+            <Select 
+              value={form.grantId ? String(form.grantId) : undefined} 
+              onValueChange={(value) => setForm({ ...form, grantId: value })}
+            >
+              <SelectTrigger className="h-9 text-xs bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-600 font-medium">
+                <div className="flex items-center gap-2">
+                  <FolderKanban size={14} className="text-slate-400" />
+                  <SelectValue placeholder="-- Select Connected Grant --" />
+                </div>
+              </SelectTrigger>
+              <SelectContent className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-xs">
                 {grants && grants.map((g) => (
-                  <option key={g.id} value={g.id}>
-                     {g.grantName || g.name}
-                  </option>
+                  <SelectItem key={g.id} value={String(g.id)} className="text-xs text-slate-900 dark:text-slate-100 cursor-pointer">
+                    {g.grantName || g.name}
+                  </SelectItem>
                 ))}
-              </select>
-              <FolderKanban className="absolute right-3 top-2.5 text-slate-400 pointer-events-none" size={14} />
-            </div>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Display Amount Ceiling */}
@@ -198,7 +204,7 @@ export default function CreateProject({
             <Input
               type="number"
               placeholder="E.g., 5"
-              className="h-9 text-xs bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900"
+              className="h-9 text-xs bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-600"
               value={form.quantity}
               onChange={(e) => setForm({ ...form, quantity: e.target.value })}
               required
@@ -211,7 +217,7 @@ export default function CreateProject({
             <Input
               type="number"
               placeholder="E.g., 30"
-              className={`h-9 text-xs bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 font-mono focus:ring-2 ${isBudgetExceeded ? "border-red-500 dark:border-red-500 focus:ring-red-500 text-red-600" : "focus:ring-blue-600"}`}
+              className={`h-9 text-xs bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 font-mono focus:ring-2 ${isBudgetExceeded ? "border-red-500 dark:border-red-500 focus:ring-red-500 text-red-600" : "focus:ring-blue-600"}`}
               value={form.unitPrice}
               onChange={(e) => setForm({ ...form, unitPrice: e.target.value })}
               required
@@ -233,14 +239,14 @@ export default function CreateProject({
             <Input
               type="number"
               placeholder={isAdvanceDisabled ? "Disabled - Enter price first" : "Enter advance payment amount..."}
-              className={`h-9 text-xs font-mono ${isAdvanceDisabled ? "bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed select-none" : "bg-white dark:bg-slate-800 text-slate-900"} ${isAdvanceExceeded ? "border-red-500 text-red-600 focus:ring-red-500 bg-red-50/30" : ""}`}
+              className={`h-9 text-xs font-mono ${isAdvanceDisabled ? "bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed select-none" : "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"} ${isAdvanceExceeded ? "border-red-500 text-red-600 focus:ring-red-500 bg-red-50/30" : ""}`}
               value={isAdvanceDisabled ? "" : form.advancePayment}
               onChange={(e) => setForm({ ...form, advancePayment: e.target.value })}
               disabled={isAdvanceDisabled || isBudgetExceeded}
             />
           </div>
 
-          {/* Error Message Box (Haddii Advance uu la mid noqdo ama ka bato Total Budget-ka) */}
+          {/* Error Message Box */}
           {isAdvanceExceeded && (
             <div className="col-span-2 text-center py-1 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded text-[11px] font-semibold text-red-600 dark:text-red-400">
               Cisabtu ma qadeyso! Hormarisku (${form.advancePayment}) lama mid noqon karo miisaaniyadda mashruuca (${form.totalBudget}). Net-ku eber ma noqon karo!
@@ -274,7 +280,7 @@ export default function CreateProject({
             <label className="text-[11px] font-semibold text-slate-500 uppercase">Location</label>
             <Input
               placeholder="E.g., Mogadishu, Kismayo"
-              className="h-9 text-xs bg-white dark:bg-slate-800 text-slate-900"
+              className="h-9 text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-600"
               value={form.location}
               onChange={(e) => setForm({ ...form, location: e.target.value })}
               required
@@ -286,7 +292,7 @@ export default function CreateProject({
             <label className="text-[11px] font-semibold text-slate-500 uppercase">Start Date</label>
             <Input
               type="date"
-              className="h-9 text-xs bg-white dark:bg-slate-800 text-slate-900"
+              className="h-9 text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-600"
               value={form.startDate}
               onChange={(e) => setForm({ ...form, startDate: e.target.value })}
               required
@@ -298,25 +304,29 @@ export default function CreateProject({
             <label className="text-[11px] font-semibold text-slate-500 uppercase">End Date</label>
             <Input
               type="date"
-              className="h-9 text-xs bg-white dark:bg-slate-800 text-slate-900"
+              className="h-9 text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-600"
               value={form.endDate}
               onChange={(e) => setForm({ ...form, endDate: e.target.value })}
               required
             />
           </div>
 
-          {/* Project Status */}
-          <div className="col-span-2 space-y-0.5">
+          {/* 🌟 Professional Select Qeybta Project Status */}
+          <div className="col-span-2 space-y-1">
             <label className="text-[11px] font-semibold text-slate-500 uppercase">Project Status</label>
-            <select
-              className="flex h-9 w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1 text-xs focus:ring-2 focus:ring-blue-600 outline-none text-slate-900 dark:text-slate-100"
-              value={form.status}
-              onChange={(e) => setForm({ ...form, status: e.target.value })}
+            <Select 
+              value={form.status} 
+              onValueChange={(value) => setForm({ ...form, status: value })}
             >
-              <option value="Active">Active</option>
-              <option value="Completed">Completed</option>
-              <option value="Pending">Pending</option>
-            </select>
+              <SelectTrigger className="h-9 text-xs bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-600">
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+              <SelectContent className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-xs">
+                <SelectItem value="Active" className="cursor-pointer">Active</SelectItem>
+                <SelectItem value="Completed" className="cursor-pointer">Completed</SelectItem>
+                <SelectItem value="Pending" className="cursor-pointer">Pending</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Action Buttons */}
