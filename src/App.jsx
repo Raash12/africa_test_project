@@ -8,15 +8,17 @@ import DashboardLayout from "@/layouts/DashboardLayout";
 // PAGES
 import DashboardHome from "@/pages/DashboardHome";
 import EmployeesList from "@/pages/employees/EmployeesList";
-import ItemsPage from "@/pages/item/Items"; 
+import ItemsPage from "@/pages/Item/ListItem"; // 🌟 UPDATED: Wuxuu hadda si toos ah u akhrinayaa ListItem.jsx
 import UsersList from "@/pages/users/UsersList";
 import CreateUser from "@/pages/users/CreateUser";
 import UserRoles from "@/pages/users/UserRoles";
-import Programs from "@/pages/program/ListProgram"; // 🌟 Lagu daray halkan Program Category Setup
+import Programs from "@/pages/program/ListProgram"; // 🌟 Program Category Setup
 import Donors from "@/pages/donors/ListDonor";
 import Grants from "@/pages/grants/ListGrant"; 
 import Projects from "@/pages/projects/ListProject";
 import Beneficiaries from "@/pages/beneficiaries/ListBeneficiary"; 
+import ListSupplier from "@/pages/Suppliers/ListSupplier"; // 🌟 Suppliers Module path-kiisa
+import ListPurchaseOrder from "@/pages/Purchase/PurchaseOrder/ListPurchaseOrder"; // 🌟 CUSUB: Lagu daray Purchase Order Path
 
 // 🛡️ PROTECTED ROUTE COMPONENT (Wuxuu xalliyaa is-diidmada Brave iyo Chrome)
 function ProtectedRoute({ children }) {
@@ -85,13 +87,21 @@ export default function App() {
         <Route path="users/create" element={<CreateUser />} />
         <Route path="roles" element={<UserRoles />} />
 
-        {/* PROGRAMS, DONORS, GRANTS, PROJECTS, BENEFICIARIES & ITEMS */}
-        <Route path="programs" element={<Programs />} /> {/* 🌟 Route-ka cusub ee Program halkan ayuu fariisay */}
+        {/* LOGISTICS, PROGRAMS, DONORS, GRANTS, PROJECTS, BENEFICIARIES & ITEMS */}
+        <Route path="programs" element={<Programs />} />
         <Route path="donors" element={<Donors />} />
         <Route path="grants" element={<Grants />} /> 
         <Route path="projects" element={<Projects />} />
         <Route path="beneficiaries" element={<Beneficiaries />} /> 
+        
+        {/* 🌟 INVENTORY ITEMS ROUTE */}
         <Route path="items" element={<ItemsPage />} />
+        
+        {/* SUPPLIERS REGISTER */}
+        <Route path="suppliers" element={<ListSupplier />} />
+        
+        {/* PURCHASE ORDER ROUTE */}
+        <Route path="purchase-orders" element={<ListPurchaseOrder />} /> 
       </Route>
 
       {/* Haddii uu qofku qoro URL khaldan, si toos ah ugu celi guriga */}

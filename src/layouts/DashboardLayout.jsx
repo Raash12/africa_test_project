@@ -17,7 +17,14 @@ import {
   Users, 
   Handshake,
   HeartHandshake,
-  Layers, // 🌟 Lagu daray icon-ka cusub ee Programs-ka
+  Layers,
+  ChevronDown,
+  UserCheck,
+  FolderHeart, 
+  Truck,
+  FileText, // 🌟 CUSUB: Icon-ka Purchase Order
+  Receipt,  // 🌟 CUSUB: Icon-ka Purchase Invoice
+  ShoppingCart, // 🌟 CUSUB: Icon-ka Waalidka Purchase
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -28,10 +35,16 @@ import logo from "@/assets/logo.jpeg";
 export default function DashboardLayout() {
   const [open, setOpen] = useState(true);
   const [dark, setDark] = useState(false);
+  
+  // 🌟 States-ka lagu maamulo Dropdowns-ka
+  const [hrmOpen, setHrmOpen] = useState(false);
+  const [pmOpen, setPmOpen] = useState(false); // PM = Program Management
+  const [accountOpen, setAccountOpen] = useState(false); // Account Dropdown
+  const [purchaseOpen, setPurchaseOpen] = useState(false); // 🌟 CUSUB: Purchase Dropdown State
 
   const location = useLocation();
 
-  // Navigation Items including Programs, Users, Donors, Grants, Beneficiaries, Items, and Projects
+  // Navigation-ka caadiga ah
   const navItems = [
     {
       name: "Dashboard",
@@ -39,46 +52,37 @@ export default function DashboardLayout() {
       icon: LayoutDashboard,
     },
     {
-      name: "Employees",
-      path: "/employees",
-      icon: Briefcase,
-    },
-    {
-      name: "Programs", // 🌟 Menu-ga cusub ee Programs halkaan ayuu fariisay sxb
-      path: "/programs",
-      icon: Layers,
-    },
-    {
-      name: "Donors",
-      path: "/donors",
-      icon: HandCoins,
-    },
-    {
-      name: "Grants",
-      path: "/grants",
-      icon: Handshake,
-    },
-    {
-      name: "Projects",
-      path: "/projects",
-      icon: FolderKanban,
-    },
-    {
-      name: "Beneficiaries", 
-      path: "/beneficiaries",
-      icon: HeartHandshake,
-    },
-    {
       name: "Items",
       path: "/items",
       icon: Package,
     },
-    {
-      name: "Users", 
-      path: "/users",
-      icon: Users,
-    },
   ];
+
+  // Kooxda hoos timaada Program Management (Operations)
+  const programManagementItems = [
+    { name: "Programs", path: "/programs", icon: Layers },
+    { name: "Donors", path: "/donors", icon: HandCoins },
+    { name: "Grants", path: "/grants", icon: Handshake },
+    { name: "Projects", path: "/projects", icon: FolderKanban },
+    { name: "Beneficiaries", path: "/beneficiaries", icon: HeartHandshake },
+  ];
+
+  // Kooxda hoos timaada Account Parent-ka
+  const accountItems = [
+    { name: "Suppliers", path: "/suppliers", icon: Truck },
+  ];
+
+  // 🌟 CUSUB: Kooxda hoos timaada Waalidka Purchase
+  const purchaseItems = [
+    { name: "Purchase Order", path: "/purchase-orders", icon: FileText },
+    { name: "Purchase Invoice", path: "/purchase-invoices", icon: Receipt },
+  ];
+
+  // Hubinta firfircoonida si Parent-ka loo iftiimiyo
+  const isPmActive = programManagementItems.some(item => location.pathname === item.path);
+  const isAccountActive = accountItems.some(item => location.pathname === item.path);
+  const isPurchaseActive = purchaseItems.some(item => location.pathname === item.path); // 🌟 CUSUB
+  const isHrmActive = location.pathname === "/employees" || location.pathname === "/users";
 
   return (
     <div className={dark ? "dark" : ""}>
@@ -125,6 +129,7 @@ export default function DashboardLayout() {
 
           {/* NAVIGATION */}
           <nav className="space-y-1.5 flex-1 overflow-y-auto">
+            {/* Main Items (Dashboard & Items) */}
             {navItems.map((item) => {
               const Icon = item.icon;
               const active = location.pathname === item.path;
@@ -150,6 +155,263 @@ export default function DashboardLayout() {
                 </Link>
               );
             })}
+
+            {/* PARENT 1: PROGRAM MANAGEMENT */}
+            <div className="space-y-1">
+              <button
+                onClick={() => {
+                  if (!open) setOpen(true);
+                  setPmOpen(!pmOpen);
+                }}
+                className={`
+                  w-full flex items-center justify-between
+                  px-4 py-3 rounded-xl
+                  transition-all duration-200
+                  text-sm font-medium
+                  ${
+                    isPmActive
+                      ? "text-white bg-slate-800/50 font-semibold" 
+                      : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                  }
+                `}
+              >
+                <div className="flex items-center gap-3">
+                  <FolderHeart size={20} className={isPmActive ? "text-green-500" : ""} />
+                  {open && <span>Operations</span>}
+                </div>
+                {open && (
+                  <ChevronDown 
+                    size={16} 
+                    className={`transition-transform duration-200 ${pmOpen ? "rotate-180" : ""}`} 
+                  />
+                )}
+              </button>
+
+              {/* Child Items ee Program Management */}
+              {pmOpen && open && (
+                <div className="pl-6 space-y-1 transition-all duration-200">
+                  {programManagementItems.map((child) => {
+                    const ChildIcon = child.icon;
+                    const isChildActive = location.pathname === child.path;
+                    
+                    return (
+                      <Link
+                        key={child.name}
+                        to={child.path}
+                        className={`
+                          flex items-center gap-3
+                          px-4 py-2.5 rounded-xl
+                          text-xs font-medium transition-all duration-200
+                          ${
+                            isChildActive
+                              ? "bg-green-600 text-white shadow-md shadow-green-900/10"
+                              : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                          }
+                        `}
+                      >
+                        <ChildIcon size={16} />
+                        <span>{child.name}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* PARENT 2: ACCOUNT */}
+            <div className="space-y-1">
+              <button
+                onClick={() => {
+                  if (!open) setOpen(true);
+                  setAccountOpen(!accountOpen);
+                }}
+                className={`
+                  w-full flex items-center justify-between
+                  px-4 py-3 rounded-xl
+                  transition-all duration-200
+                  text-sm font-medium
+                  ${
+                    isAccountActive
+                      ? "text-white bg-slate-800/50 font-semibold" 
+                      : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                  }
+                `}
+              >
+                <div className="flex items-center gap-3">
+                  <Handshake size={20} className={isAccountActive ? "text-green-500" : ""} />
+                  {open && <span>Account</span>}
+                </div>
+                {open && (
+                  <ChevronDown 
+                    size={16} 
+                    className={`transition-transform duration-200 ${accountOpen ? "rotate-180" : ""}`} 
+                  />
+                )}
+              </button>
+
+              {/* Child Items ee Account */}
+              {accountOpen && open && (
+                <div className="pl-6 space-y-1 transition-all duration-200">
+                  {accountItems.map((child) => {
+                    const ChildIcon = child.icon;
+                    const isChildActive = location.pathname === child.path;
+                    
+                    return (
+                      <Link
+                        key={child.name}
+                        to={child.path}
+                        className={`
+                          flex items-center gap-3
+                          px-4 py-2.5 rounded-xl
+                          text-xs font-medium transition-all duration-200
+                          ${
+                            isChildActive
+                              ? "bg-green-600 text-white shadow-md shadow-green-900/10"
+                              : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                          }
+                        `}
+                      >
+                        <ChildIcon size={16} />
+                        <span>{child.name}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* 🌟 PARENT 4: PURCHASE (Cusub sxb) */}
+            <div className="space-y-1">
+              <button
+                onClick={() => {
+                  if (!open) setOpen(true);
+                  setPurchaseOpen(!purchaseOpen);
+                }}
+                className={`
+                  w-full flex items-center justify-between
+                  px-4 py-3 rounded-xl
+                  transition-all duration-200
+                  text-sm font-medium
+                  ${
+                    isPurchaseActive
+                      ? "text-white bg-slate-800/50 font-semibold" 
+                      : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                  }
+                `}
+              >
+                <div className="flex items-center gap-3">
+                  <ShoppingCart size={20} className={isPurchaseActive ? "text-green-500" : ""} />
+                  {open && <span>Purchase</span>}
+                </div>
+                {open && (
+                  <ChevronDown 
+                    size={16} 
+                    className={`transition-transform duration-200 ${purchaseOpen ? "rotate-180" : ""}`} 
+                  />
+                )}
+              </button>
+
+              {/* Child Items ee Purchase (Purchase Order & Invoice) */}
+              {purchaseOpen && open && (
+                <div className="pl-6 space-y-1 transition-all duration-200">
+                  {purchaseItems.map((child) => {
+                    const ChildIcon = child.icon;
+                    const isChildActive = location.pathname === child.path;
+                    
+                    return (
+                      <Link
+                        key={child.name}
+                        to={child.path}
+                        className={`
+                          flex items-center gap-3
+                          px-4 py-2.5 rounded-xl
+                          text-xs font-medium transition-all duration-200
+                          ${
+                            isChildActive
+                              ? "bg-green-600 text-white shadow-md shadow-green-900/10"
+                              : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                          }
+                        `}
+                      >
+                        <ChildIcon size={16} />
+                        <span>{child.name}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* PARENT 3: HRM */}
+            <div className="space-y-1">
+              <button
+                onClick={() => {
+                  if (!open) setOpen(true);
+                  setHrmOpen(!hrmOpen);
+                }}
+                className={`
+                  w-full flex items-center justify-between
+                  px-4 py-3 rounded-xl
+                  transition-all duration-200
+                  text-sm font-medium
+                  ${
+                    isHrmActive
+                      ? "text-white bg-slate-800/50 font-semibold" 
+                      : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                  }
+                `}
+              >
+                <div className="flex items-center gap-3">
+                  <UserCheck size={20} className={isHrmActive ? "text-green-500" : ""} />
+                  {open && <span>HRM</span>}
+                </div>
+                {open && (
+                  <ChevronDown 
+                    size={16} 
+                    className={`transition-transform duration-200 ${hrmOpen ? "rotate-180" : ""}`} 
+                  />
+                )}
+              </button>
+
+              {/* Children of HRM */}
+              {hrmOpen && open && (
+                <div className="pl-6 space-y-1 transition-all duration-200">
+                  <Link
+                    to="/employees"
+                    className={`
+                      flex items-center gap-3
+                      px-4 py-2.5 rounded-xl
+                      text-xs font-medium transition-all duration-200
+                      ${
+                        location.pathname === "/employees"
+                          ? "bg-green-600 text-white shadow-md shadow-green-900/10"
+                          : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                      }
+                    `}
+                  >
+                    <Briefcase size={16} />
+                    <span>Employees</span>
+                  </Link>
+
+                  <Link
+                    to="/users"
+                    className={`
+                      flex items-center gap-3
+                      px-4 py-2.5 rounded-xl
+                      text-xs font-medium transition-all duration-200
+                      ${
+                        location.pathname === "/users"
+                          ? "bg-green-600 text-white shadow-md shadow-green-900/10"
+                          : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                      }
+                    `}
+                  >
+                    <Users size={16} />
+                    <span>Users</span>
+                  </Link>
+                </div>
+              )}
+            </div>
           </nav>
 
           {/* BOTTOM ACTIONS */}
@@ -177,7 +439,6 @@ export default function DashboardLayout() {
 
         {/* MAIN CONTENT */}
         <main className="flex-1 flex flex-col min-h-screen overflow-hidden">
-          
           {/* HEADER */}
           <header className="relative py-8 px-8 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
             <div className="absolute top-0 right-0 w-64 h-full bg-gradient-to-l from-green-500/5 to-transparent pointer-events-none" />

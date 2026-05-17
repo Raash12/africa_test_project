@@ -1,19 +1,12 @@
 import { useState, useMemo } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Edit2, Trash2, X, Check, Plus, Search } from "lucide-react"; 
+import { Input } from "@/components/ui/input";
+import { Edit2, Trash2, X, Check, Search } from "lucide-react"; 
 import useItems from "@/hooks/useItems";
-import { createItem, updateItem, deleteItem } from "@/services/items/itemService";
+import { updateItem, deleteItem } from "@/services/items/itemService";
+import CreateItem from "./CreateItem"; // 🌟 Soo dhoofis foomka Modal-ka ahaa
 
-// SHADCN DIALOG & PAGINATION IMPORTS
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+// SHADCN PAGINATION IMPORTS
 import {
   Pagination,
   PaginationContent,
@@ -23,30 +16,17 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 
-export default function Items() {
-  const { items, refreshItems } = useItems();
-  const [itemName, setItemName] = useState("");
+export default function ListItem() {
+  const { items, refreshItems, loading } = useItems();
   const [search, setSearch] = useState("");
-  const [open, setOpen] = useState(false);
   
-  // States for Editing Inline
+  // Inline Edit states ee labada field
   const [editingId, setEditingId] = useState(null);
-  const [editValue, setEditValue] = useState("");
+  const [editForm, setEditForm] = useState({ itemName: "", description: "" });
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
-
-  // Handle Create
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!itemName.trim()) return;
-
-    await createItem({ itemName });
-    setItemName("");
-    setOpen(false); // Xir pop-up-ka marka la save-gareeyo kadib
-    refreshItems();
-  };
 
   // Handle Delete
   const handleDelete = async (id) => {
@@ -59,22 +39,29 @@ export default function Items() {
   // Start Edit Mode
   const startEdit = (item) => {
     setEditingId(item.id);
-    setEditValue(item.itemName);
+    setEditForm({
+      itemName: item.itemName,
+      description: item.description || ""
+    });
   };
 
   // Save Update
   const handleUpdate = async (id) => {
-    if (!editValue.trim()) return;
-    await updateItem(id, { itemName: editValue });
+    if (!editForm.itemName.trim()) return;
+    await updateItem(id, { 
+      itemName: editForm.itemName, 
+      description: editForm.description 
+    });
     setEditingId(null);
     refreshItems();
   };
 
-  // Filter & Search Logic
+  // Filter & Search Logic (Item Name iyo Description-baba waa lagu dhex raadin karaa)
   const filteredData = useMemo(() => {
     setCurrentPage(1);
     return items.filter((item) =>
-      item.itemName?.toLowerCase().includes(search.toLowerCase())
+      item.itemName?.toLowerCase().includes(search.toLowerCase()) ||
+      item.description?.toLowerCase().includes(search.toLowerCase())
     );
   }, [items, search]);
 
@@ -90,43 +77,14 @@ export default function Items() {
     <div className="p-6 max-w-7xl mx-auto space-y-6 bg-slate-50 dark:bg-slate-950 min-h-screen text-slate-900 dark:text-slate-100 transition-colors duration-300">
       
       {/* HEADER BANNER - Africa Ihsan Aid Navy Style */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-xl border-l-8 border-[#1e3a8a] dark:border-blue-500 shadow-sm border-t border-r border-b border-slate-100 dark:border-slate-800 transition-all">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-xl border-l-8 border-[#1e3a8a] dark:border-blue-500 shadow-sm border-t border-r border-b border-slate-100 dark:border-slate-800">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50 uppercase tracking-tight">Inventory Items</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Manage Africa Ihsan Aid Items & Inventory</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Manage Africa Ihsan Aid Items & Description List</p>
         </div>
 
-        {/* POP-UP MODAL DIALOG */}
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-[#1e3a8a] dark:bg-blue-600 hover:bg-[#172554] dark:hover:bg-blue-700 text-white px-6 shadow-md border-none transition-all">
-              <Plus size={18} className="mr-2" /> Add Item
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-lg">
-            <DialogHeader>
-              <DialogTitle className="text-[#1e3a8a] dark:text-blue-400 text-lg font-bold uppercase tracking-wider">
-                Add New Item
-              </DialogTitle>
-            </DialogHeader>
-            
-            <form onSubmit={handleSubmit} className="space-y-4 pt-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Item Name</label>
-                <Input
-                  placeholder="Enter Item Name (e.g. Laptop, Desk)"
-                  value={itemName}
-                  onChange={(e) => setItemName(e.target.value)}
-                  className="w-full bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-600 outline-none"
-                  required
-                />
-              </div>
-              <Button type="submit" className="w-full bg-[#1e3a8a] dark:bg-blue-600 hover:bg-[#172554] dark:hover:bg-blue-700 text-white shadow-md border-none transition-all">
-                Save Item
-              </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+        {/* 🌟 CREATE ITEM COMPONENT MODAL */}
+        <CreateItem refreshItems={refreshItems} />
       </div>
 
       {/* SEARCH BOX */}
@@ -134,8 +92,8 @@ export default function Items() {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={18} />
         <input
           type="text"
-          placeholder="Search items..."
-          className="w-full pl-10 pr-4 py-2.5 border border-slate-200 dark:border-slate-800 rounded-lg focus:ring-2 focus:ring-blue-600 outline-none transition-all bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100"
+          placeholder="Search by name or description..."
+          className="w-full pl-10 pr-4 py-2.5 border border-slate-200 dark:border-slate-800 rounded-lg focus:ring-2 focus:ring-blue-600 outline-none transition-all bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -147,21 +105,26 @@ export default function Items() {
           <table className="w-full text-sm text-left">
             <thead className="bg-[#1e3a8a] dark:bg-slate-800 text-white dark:text-slate-100 text-xs uppercase tracking-widest font-bold">
               <tr>
-                {/* Halkan waa laga saaray Item ID */}
-                <th className="p-4">Item Name</th>
+                <th className="p-4 w-1/3">Item Name</th>
+                <th className="p-4 w-1/2">Description</th>
                 <th className="p-4 text-center w-36">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {paginatedData.map((item) => (
+              {loading ? (
+                <tr>
+                  <td colSpan="3" className="p-8 text-center text-slate-400">Loading items list...</td>
+                </tr>
+              ) : paginatedData.map((item) => (
                 <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                  {/* Halkan waxaa laga saaray <td> ee ID-ga muujinayay */}
-                  <td className="p-4">
+                  
+                  {/* Item Name Column */}
+                  <td className="p-4 align-middle">
                     {editingId === item.id ? (
                       <Input 
-                        value={editValue} 
-                        onChange={(e) => setEditValue(e.target.value)}
-                        className="h-9 max-w-[300px] bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100"
+                        value={editForm.itemName} 
+                        onChange={(e) => setEditForm({ ...editForm, itemName: e.target.value })}
+                        className="h-9 w-full bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 text-xs"
                         autoFocus
                       />
                     ) : (
@@ -169,7 +132,21 @@ export default function Items() {
                     )}
                   </td>
 
-                  <td className="p-4 text-center">
+                  {/* Description Column */}
+                  <td className="p-4 align-middle">
+                    {editingId === item.id ? (
+                      <Input 
+                        value={editForm.description} 
+                        onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                        className="h-9 w-full bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 text-xs"
+                      />
+                    ) : (
+                      <span className="text-slate-500 dark:text-slate-400 text-xs line-clamp-1">{item.description || "—"}</span>
+                    )}
+                  </td>
+
+                  {/* Actions Column */}
+                  <td className="p-4 text-center align-middle">
                     <div className="flex justify-center gap-2">
                       {editingId === item.id ? (
                         <>
@@ -210,7 +187,7 @@ export default function Items() {
           </table>
         </div>
         
-        {paginatedData.length === 0 && (
+        {paginatedData.length === 0 && !loading && (
           <div className="p-12 text-center text-slate-400 dark:text-slate-500 italic">
             No items found. Add your first item above.
           </div>
