@@ -1,261 +1,331 @@
-// src/pages/projects/CreateProject.jsx
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FolderKanban } from "lucide-react";
 
-import useDonors from "@/hooks/useDonors";
-import useItems from "@/hooks/useItems";
-import { createProject, updateProject } from "@/services/projects/projectService";
+export default function CreateProject({ 
+  isOpen, 
+  onClose, 
+  refreshProjects, 
+  projectToEdit, 
+  grants, 
+  createProject, 
+  updateProject 
+}) {
+  const [form, setForm] = useState({
+    name: "",
+    grantId: "",
+    grantTotalAmount: 0,       
+    quantity: "",              
+    unitPrice: "",             
+    totalBudget: 0,            
+    advancePayment: "",        
+    netImplementationBudget: 0, 
+    location: "",
+    startDate: "",
+    endDate: "",
+    status: "Active",
+    description: "",
+  });
 
-const getEmptyForm = () => ({
-  donorId: "",
-  donorName: "",
-  projectName: "",
-  itemId: "",
-  itemName: "",
-  quantity: "",
-  unitPrice: "",
-  startDate: "",
-  endDate: "",
-});
-
-const SHOW_ITEM_DROPDOWN = ["Xoolo", "Xoolo Irmaan", "Iftar Program"];
-const SHOW_NUMERIC_FIELDS = ["Xoolo", "Xoolo Irmaan", "Iftar Program", "Ceel Biyood", "Kurbaan/Carafo"];
-
-export default function CreateProject({ isOpen, onClose, refreshProjects, projectToEdit }) {
-  const { donors = [] } = useDonors();
-  const { items = [] } = useItems();
-  const [form, setForm] = useState(getEmptyForm());
-
+  // 1. 🔄 Marka Grant la doorto, kaydi inta ay deeqda guud tahay
   useEffect(() => {
-    if (projectToEdit) {
-      setForm({ ...getEmptyForm(), ...projectToEdit });
-    } else {
-      setForm(getEmptyForm());
+    if (form.grantId && grants && grants.length > 0) {
+      const selectedGrant = grants.find((g) => String(g.id) === String(form.grantId));
+      if (selectedGrant) {
+        const grantBudget = parseFloat(selectedGrant.amount) || 0;
+        setForm((prev) => ({ 
+          ...prev, 
+          grantTotalAmount: grantBudget,
+        }));
+      }
     }
-  }, [projectToEdit, isOpen]);
+  }, [form.grantId, grants]);
 
-  const hasItemDropdown = SHOW_ITEM_DROPDOWN.includes(form.projectName);
-  const hasNumericFields = SHOW_NUMERIC_FIELDS.includes(form.projectName);
+  // 2. 🧮 Dynamic Budget Calculation
+  useEffect(() => {
+    const qty = parseFloat(form.quantity) || 0;
+    const uPrice = parseFloat(form.unitPrice) || 0;
+    const advance = parseFloat(form.advancePayment) || 0;
 
-  const qty = Number(form.quantity) || 0;
-  const price = Number(form.unitPrice) || 0;
-  const totalBudget = qty * price;
-  const advancePayment = totalBudget / 2;
-  const remainingBalance = totalBudget / 2;
+    // Total Budget = Qty * Unit Price
+    const calculatedTotalBudget = qty * uPrice;
 
-  const cleanForFirestore = (data) =>
-    Object.fromEntries(
-      Object.entries(data).filter(([_, v]) => v !== "" && v !== undefined)
-    );
+    // Net Budget = Total Budget - Advance Payment
+    const calculatedNetBudget = calculatedTotalBudget - advance;
+
+    setForm((prev) => ({
+      ...prev,
+      totalBudget: calculatedTotalBudget,
+      netImplementationBudget: calculatedNetBudget,
+    }));
+  }, [form.quantity, form.unitPrice, form.advancePayment]);
+
+  // LABADA DIGNIIN (VALIDATIONS)
+  const isBudgetExceeded = form.totalBudget > form.grantTotalAmount;
+  
+  // LOGIC-GA CUSUB: Advance-ku waa inuu ka yaryahay Total Budget (Lama mid noqon karo, kamana badnaan karo -> Net-ku eber ma noqon karo)
+  const advanceValue = parseFloat(form.advancePayment) || 0;
+  const isAdvanceExceeded = advanceValue > 0 && advanceValue >= form.totalBudget;
+
+  // Is-hortaagga Advance Payment input-ka haddii miisaaniyadda guud ay eber tahay ama saqafka grant-iga la gaaray
+  const isAdvanceDisabled = form.totalBudget === 0 || (form.totalBudget > 0 && (form.grantTotalAmount - form.totalBudget <= 0));
+
+  // 3. Load ama Reset Form
+  useEffect(() => {
+    if (isOpen) {
+      if (projectToEdit) {
+        setForm(projectToEdit);
+      } else {
+        const defaultGrantId = grants && grants.length > 0 ? grants[0].id : "";
+        const defaultGrant = grants && grants.length > 0 ? grants[0] : null;
+        const defaultAmount = defaultGrant ? parseFloat(defaultGrant.amount) || 0 : 0;
+
+        setForm({
+          name: "",
+          grantId: defaultGrantId,
+          grantTotalAmount: defaultAmount,
+          quantity: "",
+          unitPrice: "",
+          totalBudget: 0,
+          advancePayment: "",
+          netImplementationBudget: 0,
+          location: "",
+          startDate: "",
+          endDate: "",
+          status: "Active",
+          description: "",
+        });
+      }
+    }
+  }, [projectToEdit, isOpen, grants]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    try {
-      if (!form.donorId || !form.projectName) {
-        alert("Fadlan dooro Donor iyo Project Type");
-        return;
-      }
-
-      const finalPayload = cleanForFirestore({
-        ...form,
-        totalBudget,
-        advancePayment,
-        remainingBalance,
-      });
-
-      if (projectToEdit?.id) {
-        await updateProject(projectToEdit.id, finalPayload);
-      } else {
-        await createProject(finalPayload);
-      }
-
-      await refreshProjects();
-      onClose();
-    } catch (error) {
-      console.error("SAVE ERROR:", error);
-      alert("Wuu ku guuldareystay keydinta mashruuca");
+    
+    if (isBudgetExceeded) {
+      alert(`Error: Miisaaniyadda mashruucu ($${form.totalBudget}) waxay ka badantahay lacagta guud ee deeqda aad haysato ($${form.grantTotalAmount})!`);
+      return;
     }
+
+    if (isAdvanceExceeded) {
+      alert(`Error: Advance payment-ku lama mid noqon karo miisaaniyadda guud (Net budget-ku eber ma noqon karo)!`);
+      return;
+    }
+
+    const dataToSave = {
+      ...form,
+      quantity: parseFloat(form.quantity) || 0,
+      unitPrice: parseFloat(form.unitPrice) || 0,
+      totalBudget: parseFloat(form.totalBudget) || 0,
+      advancePayment: isAdvanceDisabled ? 0 : (parseFloat(form.advancePayment) || 0),
+      netImplementationBudget: parseFloat(form.netImplementationBudget) || 0,
+    };
+
+    if (projectToEdit?.id) {
+      await updateProject(projectToEdit.id, dataToSave);
+    } else {
+      await createProject(dataToSave);
+    }
+    onClose();
+    refreshProjects();
   };
 
+  // Badanka wuxuu xirmayaa haddii labada khalad midkood jiro
+  const isSubmitDisabled = isBudgetExceeded || isAdvanceExceeded || !form.name || !form.quantity || !form.unitPrice;
+
   return (
-    <Dialog open={isOpen} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="sm:max-w-[550px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-2xl transition-all duration-200">
-        
-        <DialogHeader className="border-b border-slate-100 dark:border-slate-800 pb-4">
-          <DialogTitle className="text-[#1e3a8a] dark:text-blue-400 text-xl font-extrabold uppercase tracking-tight">
-            {projectToEdit ? "✍️ Edit Project Setup" : "🚀 Add New Project"}
+    <Dialog open={isOpen} onOpenChange={(val) => !val && onClose()}>
+      <DialogContent className="sm:max-w-[480px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-lg overflow-hidden max-h-auto shadow-xl">
+        <DialogHeader className="pb-2 border-b border-slate-100 dark:border-slate-800">
+          <DialogTitle className="text-[#1e3a8a] dark:text-blue-400 text-base font-bold uppercase tracking-wider">
+            {projectToEdit ? "Edit Project Details" : "Launch New Project"}
           </DialogTitle>
-          <DialogDescription className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-            Fill in the details below to configure the humanitarian project parameters.
-          </DialogDescription>
         </DialogHeader>
-
-        <form onSubmit={handleSubmit} className="space-y-5 pt-4">
+        
+        <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-x-3 gap-y-2 pt-2">
           
-          {/* DONOR SELECT */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">Donor / Partner</label>
-            <Select
-              value={form.donorId}
-              onValueChange={(value) => {
-                const donor = donors?.find((d) => d.id === value);
-                if (donor) {
-                  setForm((prev) => ({
-                    ...prev,
-                    donorId: donor.id,
-                    donorName: donor.donorName,
-                  }));
-                }
-              }}
-            >
-              <SelectTrigger className="h-11 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 transition-all">
-                <SelectValue placeholder="Select Donor" />
-              </SelectTrigger>
-              <SelectContent className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl">
-                {donors?.map((d) => (
-                  <SelectItem key={d.id} value={d.id} className="cursor-pointer rounded-lg">
-                    {d.donorName}
-                  </SelectItem>
+          {/* Select Funding Grant */}
+          <div className="col-span-2 space-y-0.5">
+            <label className="text-[11px] font-semibold text-slate-500 uppercase">Select Funding Grant</label>
+            <div className="relative">
+              <select
+                className="flex h-9 w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1 text-xs focus:ring-2 focus:ring-blue-600 outline-none appearance-none text-slate-900 dark:text-slate-100 font-medium"
+                value={form.grantId}
+                onChange={(e) => setForm({ ...form, grantId: e.target.value })}
+                required
+              >
+                <option value="" disabled>-- Select Connected Grant --</option>
+                {grants && grants.map((g) => (
+                  <option key={g.id} value={g.id}>
+                     {g.grantName || g.name}
+                  </option>
                 ))}
-              </SelectContent>
-            </Select>
+              </select>
+              <FolderKanban className="absolute right-3 top-2.5 text-slate-400 pointer-events-none" size={14} />
+            </div>
           </div>
 
-          {/* PROJECT TYPE SELECT */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">Project Category</label>
-            <Select
-              value={form.projectName}
-              onValueChange={(val) =>
-                setForm((prev) => ({
-                  ...prev,
-                  projectName: val,
-                  itemId: "",
-                  itemName: "",
-                  quantity: "",
-                  unitPrice: "",
-                }))
-              }
-            >
-              <SelectTrigger className="h-11 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 transition-all">
-                <SelectValue placeholder="Choose Project" />
-              </SelectTrigger>
-              <SelectContent className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl">
-                <SelectItem value="Xoolo" className="cursor-pointer rounded-lg">Xoolo</SelectItem>
-                <SelectItem value="Kurbaan/Carafo" className="cursor-pointer rounded-lg">Kurbaan/Carafo</SelectItem>
-                <SelectItem value="Xoolo Irmaan" className="cursor-pointer rounded-lg">Xoolo Irmaan</SelectItem>
-                <SelectItem value="Ceel Biyood" className="cursor-pointer rounded-lg">Ceel Biyood</SelectItem>
-                <SelectItem value="Iftar Program" className="cursor-pointer rounded-lg">Iftar Program</SelectItem>
-              </SelectContent>
-            </Select>
+          {/* Display Amount Ceiling */}
+          <div className="col-span-2 bg-blue-50/40 dark:bg-blue-950/10 border border-blue-100 dark:border-blue-900/30 p-2 rounded-md flex justify-between items-center text-[11px]">
+            <span className="font-semibold text-slate-500 dark:text-slate-400">Available Grant Ceiling:</span>
+            <span className="font-mono font-bold text-[#1e3a8a] dark:text-blue-400 bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-blue-100 dark:border-blue-900/50 shadow-sm">
+              ${Number(form.grantTotalAmount).toLocaleString()}
+            </span>
           </div>
 
-          {/* DYNAMIC INPUT SECTION */}
-          {hasNumericFields && (
-            <div className="p-4 bg-slate-50 dark:bg-slate-800/30 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-4 shadow-inner">
-              
-              {/* ITEM DROPDOWN */}
-              {hasItemDropdown && (
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Select Inventory Item</label>
-                  <Select
-                    value={form.itemId}
-                    onValueChange={(value) => {
-                      const item = items?.find((i) => i.id === value);
-                      if (item) {
-                        setForm((prev) => ({
-                          ...prev,
-                          itemId: item.id,
-                          itemName: item.itemName,
-                        }));
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="h-11 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl">
-                      <SelectValue placeholder="Select Item" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl">
-                      {items?.map((item) => (
-                        <SelectItem key={item.id} value={item.id} className="cursor-pointer rounded-lg">
-                          {item.itemName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+          {/* Project Name */}
+          <div className="col-span-2 space-y-0.5">
+            <label className="text-[11px] font-semibold text-slate-500 uppercase">Project Name</label>
+            <Input
+              placeholder="E.g., Borehole Drilling in Gedo"
+              className="h-9 text-xs bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-600"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              required
+            />
+          </div>
 
-              {/* QUANTITY IYO UNIT PRICE */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Quantity</label>
-                  <Input
-                    type="number"
-                    value={form.quantity}
-                    onChange={(e) => setForm((prev) => ({ ...prev, quantity: e.target.value }))}
-                    className="h-11 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500"
-                    placeholder="e.g. 50"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Unit Price ($)</label>
-                  <Input
-                    type="number"
-                    value={form.unitPrice}
-                    onChange={(e) => setForm((prev) => ({ ...prev, unitPrice: e.target.value }))}
-                    className="h-11 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500"
-                    placeholder="0.00"
-                  />
-                </div>
-              </div>
+          {/* Quantity */}
+          <div className="space-y-0.5">
+            <label className="text-[11px] font-semibold text-slate-500 uppercase">Quantity</label>
+            <Input
+              type="number"
+              placeholder="E.g., 5"
+              className="h-9 text-xs bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900"
+              value={form.quantity}
+              onChange={(e) => setForm({ ...form, quantity: e.target.value })}
+              required
+            />
+          </div>
+
+          {/* Unit Price */}
+          <div className="space-y-0.5">
+            <label className="text-[11px] font-semibold text-slate-500 uppercase">Unit Price ($)</label>
+            <Input
+              type="number"
+              placeholder="E.g., 30"
+              className={`h-9 text-xs bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 font-mono focus:ring-2 ${isBudgetExceeded ? "border-red-500 dark:border-red-500 focus:ring-red-500 text-red-600" : "focus:ring-blue-600"}`}
+              value={form.unitPrice}
+              onChange={(e) => setForm({ ...form, unitPrice: e.target.value })}
+              required
+            />
+          </div>
+
+          {/* Error Message Box (Miisaaniyada Guud haday ka badato) */}
+          {isBudgetExceeded && (
+            <div className="col-span-2 text-center py-1 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded text-[11px] font-semibold text-red-600 dark:text-red-400">
+              Lacagta guud (${form.totalBudget}) waxay ka badantahay inta aad haysato (${form.grantTotalAmount})!
             </div>
           )}
 
-          {/* TOTALS PANEL */}
-          <div className="bg-slate-950 dark:bg-slate-950 text-slate-100 p-4 rounded-2xl border border-slate-800/80 space-y-2.5 shadow-xl font-mono text-xs">
-            <div className="flex justify-between border-b border-slate-800/60 pb-2 items-center">
-              <span className="text-slate-400 font-sans tracking-wide uppercase font-bold text-[10px]">Total Budget</span>
-              <span className="text-green-400 font-bold text-base">${totalBudget.toLocaleString()}</span>
+          {/* Advance Payment */}
+          <div className="col-span-2 space-y-0.5">
+            <label className="text-[11px] font-semibold text-slate-500 uppercase">
+              Advance Payment ($) {isAdvanceDisabled && <span className="text-red-500 font-normal lowercase">(locked)</span>}
+            </label>
+            <Input
+              type="number"
+              placeholder={isAdvanceDisabled ? "Disabled - Enter price first" : "Enter advance payment amount..."}
+              className={`h-9 text-xs font-mono ${isAdvanceDisabled ? "bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed select-none" : "bg-white dark:bg-slate-800 text-slate-900"} ${isAdvanceExceeded ? "border-red-500 text-red-600 focus:ring-red-500 bg-red-50/30" : ""}`}
+              value={isAdvanceDisabled ? "" : form.advancePayment}
+              onChange={(e) => setForm({ ...form, advancePayment: e.target.value })}
+              disabled={isAdvanceDisabled || isBudgetExceeded}
+            />
+          </div>
+
+          {/* Error Message Box (Haddii Advance uu la mid noqdo ama ka bato Total Budget-ka) */}
+          {isAdvanceExceeded && (
+            <div className="col-span-2 text-center py-1 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded text-[11px] font-semibold text-red-600 dark:text-red-400">
+              Cisabtu ma qadeyso! Hormarisku (${form.advancePayment}) lama mid noqon karo miisaaniyadda mashruuca (${form.totalBudget}). Net-ku eber ma noqon karo!
             </div>
-            <div className="flex justify-between border-b border-slate-800/60 py-1.5 items-center">
-              <span className="text-slate-400 font-sans tracking-wide uppercase font-bold text-[10px]">Advance Payment (50%)</span>
-              <span className="text-blue-400 font-semibold text-sm">${advancePayment.toLocaleString()}</span>
+          )}
+
+          {/* 🧮 FINANCIAL SUMMARY BOX */}
+          <div className="col-span-2 grid grid-cols-3 gap-2 bg-slate-50 dark:bg-slate-800/40 p-2 rounded-lg border border-slate-100 dark:border-slate-800/60 my-0.5">
+            <div className="text-center p-1 bg-white dark:bg-slate-900 rounded border border-slate-100 dark:border-slate-800">
+              <span className="text-[9px] font-bold text-slate-400 uppercase block">Total Budget</span>
+              <span className={`text-xs font-mono font-bold block ${isBudgetExceeded ? "text-red-600" : "text-slate-800 dark:text-slate-100"}`}>
+                ${Number(form.totalBudget).toLocaleString()}
+              </span>
             </div>
-            <div className="flex justify-between pt-1 items-center">
-              <span className="text-slate-400 font-sans tracking-wide uppercase font-bold text-[10px]">Remaining Balance</span>
-              <span className="text-amber-400 font-semibold text-sm">${remainingBalance.toLocaleString()}</span>
+            <div className="text-center p-1 bg-white dark:bg-slate-900 rounded border border-slate-100 dark:border-slate-800">
+              <span className="text-[9px] font-bold text-slate-400 uppercase block">Advance</span>
+              <span className={`text-xs font-mono font-bold block ${isAdvanceExceeded ? "text-red-600 font-extrabold" : "text-red-500"}`}>
+                -${(parseFloat(form.advancePayment) || 0).toLocaleString()}
+              </span>
+            </div>
+            <div className="text-center p-1 bg-white dark:bg-slate-900 rounded border border-slate-100 dark:border-slate-800">
+              <span className="text-[9px] font-bold text-slate-400 uppercase block">Net Impl. Budget</span>
+              <span className={`text-xs font-mono font-bold block ${isSubmitDisabled ? "text-red-600 font-extrabold" : form.netImplementationBudget > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-700"}`}>
+                ${Number(form.netImplementationBudget).toLocaleString()}
+              </span>
             </div>
           </div>
 
-          {/* ACTIONS BUTTONS */}
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={onClose} 
-              className="h-11 px-5 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl font-semibold transition-all cursor-pointer"
+          {/* Location */}
+          <div className="col-span-2 space-y-0.5">
+            <label className="text-[11px] font-semibold text-slate-500 uppercase">Location</label>
+            <Input
+              placeholder="E.g., Mogadishu, Kismayo"
+              className="h-9 text-xs bg-white dark:bg-slate-800 text-slate-900"
+              value={form.location}
+              onChange={(e) => setForm({ ...form, location: e.target.value })}
+              required
+            />
+          </div>
+
+          {/* Start Date */}
+          <div className="space-y-0.5">
+            <label className="text-[11px] font-semibold text-slate-500 uppercase">Start Date</label>
+            <Input
+              type="date"
+              className="h-9 text-xs bg-white dark:bg-slate-800 text-slate-900"
+              value={form.startDate}
+              onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+              required
+            />
+          </div>
+
+          {/* End Date */}
+          <div className="space-y-0.5">
+            <label className="text-[11px] font-semibold text-slate-500 uppercase">End Date</label>
+            <Input
+              type="date"
+              className="h-9 text-xs bg-white dark:bg-slate-800 text-slate-900"
+              value={form.endDate}
+              onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+              required
+            />
+          </div>
+
+          {/* Project Status */}
+          <div className="col-span-2 space-y-0.5">
+            <label className="text-[11px] font-semibold text-slate-500 uppercase">Project Status</label>
+            <select
+              className="flex h-9 w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1 text-xs focus:ring-2 focus:ring-blue-600 outline-none text-slate-900 dark:text-slate-100"
+              value={form.status}
+              onChange={(e) => setForm({ ...form, status: e.target.value })}
             >
-              Cancel
-            </Button>
+              <option value="Active">Active</option>
+              <option value="Completed">Completed</option>
+              <option value="Pending">Pending</option>
+            </select>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="col-span-2 flex justify-end gap-2 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <Button type="button" variant="outline" onClick={onClose} className="h-8 text-xs border-slate-200 dark:border-slate-700">Cancel</Button>
             <Button 
               type="submit" 
-              className="h-11 px-6 bg-[#1e3a8a] dark:bg-blue-600 hover:bg-[#172554] dark:hover:bg-blue-700 text-white rounded-xl font-semibold shadow-lg shadow-blue-900/20 transition-all cursor-pointer"
+              className={`h-8 text-xs text-white shadow-sm border-none transition-all ${isSubmitDisabled ? "bg-red-400 cursor-not-allowed hover:bg-red-400" : "bg-[#1e3a8a] dark:bg-blue-600 hover:bg-[#172554] dark:hover:bg-blue-700"}`}
+              disabled={isSubmitDisabled}
             >
               {projectToEdit ? "Update Project" : "Save Project"}
             </Button>

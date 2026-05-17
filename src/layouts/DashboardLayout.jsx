@@ -14,7 +14,10 @@ import {
   FolderKanban,
   LogOut,
   Package,
-  Users, // Icon for Users
+  Users, 
+  Handshake,
+  HeartHandshake,
+  Layers, // 🌟 Lagu daray icon-ka cusub ee Programs-ka
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -28,7 +31,7 @@ export default function DashboardLayout() {
 
   const location = useLocation();
 
-  // Navigation Items including Users, Donors, Items, and Projects
+  // Navigation Items including Programs, Users, Donors, Grants, Beneficiaries, Items, and Projects
   const navItems = [
     {
       name: "Dashboard",
@@ -41,14 +44,19 @@ export default function DashboardLayout() {
       icon: Briefcase,
     },
     {
+      name: "Programs", // 🌟 Menu-ga cusub ee Programs halkaan ayuu fariisay sxb
+      path: "/programs",
+      icon: Layers,
+    },
+    {
       name: "Donors",
       path: "/donors",
       icon: HandCoins,
     },
     {
-      name: "Items",
-      path: "/items",
-      icon: Package,
+      name: "Grants",
+      path: "/grants",
+      icon: Handshake,
     },
     {
       name: "Projects",
@@ -56,7 +64,17 @@ export default function DashboardLayout() {
       icon: FolderKanban,
     },
     {
-      name: "Users", // Added Users back in
+      name: "Beneficiaries", 
+      path: "/beneficiaries",
+      icon: HeartHandshake,
+    },
+    {
+      name: "Items",
+      path: "/items",
+      icon: Package,
+    },
+    {
+      name: "Users", 
       path: "/users",
       icon: Users,
     },

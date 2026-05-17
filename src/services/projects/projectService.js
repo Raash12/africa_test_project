@@ -1,39 +1,14 @@
-import {
-  collection,
-  addDoc,
-  getDocs,
-  serverTimestamp,
-  deleteDoc,
-  doc,
-  updateDoc,
-} from "firebase/firestore";
-
 import { db } from "@/lib/firebase";
+import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc } from "firebase/firestore";
 
-const projectRef = collection(db, "projects");
+const projectCollection = collection(db, "projects");
 
-export const createProject = async (data) => {
-  return await addDoc(projectRef, {
-    ...data,
-    createdAt: serverTimestamp(),
-  });
-};
+export const createProject = (data) => addDoc(projectCollection, data);
 
 export const getProjects = async () => {
-  const snapshot = await getDocs(projectRef);
-
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  }));
+  const snapshot = await getDocs(projectCollection);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
 
-export const updateProject = async (id, data) => {
-  const projectDoc = doc(db, "projects", id);
-  return await updateDoc(projectDoc, data);
-};
-
-export const deleteProject = async (id) => {
-  const projectDoc = doc(db, "projects", id);
-  return await deleteDoc(projectDoc);
-};
+export const updateProject = (id, data) => updateDoc(doc(db, "projects", id), data);
+export const deleteProject = (id) => deleteDoc(doc(db, "projects", id));

@@ -12,8 +12,11 @@ import ItemsPage from "@/pages/item/Items";
 import UsersList from "@/pages/users/UsersList";
 import CreateUser from "@/pages/users/CreateUser";
 import UserRoles from "@/pages/users/UserRoles";
+import Programs from "@/pages/program/ListProgram"; // 🌟 Lagu daray halkan Program Category Setup
 import Donors from "@/pages/donors/ListDonor";
+import Grants from "@/pages/grants/ListGrant"; 
 import Projects from "@/pages/projects/ListProject";
+import Beneficiaries from "@/pages/beneficiaries/ListBeneficiary"; 
 
 // 🛡️ PROTECTED ROUTE COMPONENT (Wuxuu xalliyaa is-diidmada Brave iyo Chrome)
 function ProtectedRoute({ children }) {
@@ -82,9 +85,12 @@ export default function App() {
         <Route path="users/create" element={<CreateUser />} />
         <Route path="roles" element={<UserRoles />} />
 
-        {/* DONORS, PROJECTS, & ITEMS */}
+        {/* PROGRAMS, DONORS, GRANTS, PROJECTS, BENEFICIARIES & ITEMS */}
+        <Route path="programs" element={<Programs />} /> {/* 🌟 Route-ka cusub ee Program halkan ayuu fariisay */}
         <Route path="donors" element={<Donors />} />
+        <Route path="grants" element={<Grants />} /> 
         <Route path="projects" element={<Projects />} />
+        <Route path="beneficiaries" element={<Beneficiaries />} /> 
         <Route path="items" element={<ItemsPage />} />
       </Route>
 
