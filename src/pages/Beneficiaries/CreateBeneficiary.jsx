@@ -14,7 +14,7 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select"; 
-import { FolderOpen, User, Layers } from "lucide-react"; 
+import { FolderOpen, User, Layers, AlertTriangle } from "lucide-react"; 
 
 export default function CreateBeneficiary({ 
   isOpen, 
@@ -39,6 +39,22 @@ export default function CreateBeneficiary({
     registrationDate: "",
     notes: "",
   });
+
+  // Local state to keep track of the chosen project thresholds
+  const [projectStats, setProjectStats] = useState({ target: 0, current: 0 });
+
+  // 🌟 Calculate thresholds when project changes
+  useEffect(() => {
+    if (form.projectId && projects && projects.length > 0) {
+      const selectedProj = projects.find((p) => String(p.id) === String(form.projectId));
+      if (selectedProj) {
+        setProjectStats({
+          target: parseInt(selectedProj.targetBeneficiaries) || 0,
+          current: parseInt(selectedProj.currentRegisteredCount) || 0, // Fallback to 0 if new project
+        });
+      }
+    }
+  }, [form.projectId, projects]);
 
   useEffect(() => {
     if (isOpen) {
@@ -69,6 +85,13 @@ export default function CreateBeneficiary({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Safety check warning
+    if (projectStats.target > 0 && projectStats.current >= projectStats.target && !beneficiaryToEdit) {
+       const confirmAnyway = window.confirm("DIGNIIN: Mashruucaan wuu buuxaa (Target reached). Ma hubtaa inaad rabto inaad ku darto qoys dheeri ah?");
+       if (!confirmAnyway) return;
+    }
+
     const dataToSave = {
       ...form,
       familySize: parseInt(form.familySize) || 0,
@@ -85,6 +108,7 @@ export default function CreateBeneficiary({
   };
 
   const isSubmitDisabled = !form.fullName || !form.projectId || !form.phone || !form.assistanceType || !form.quantityReceived;
+  const isLimitReached = projectStats.target > 0 && projectStats.current >= projectStats.target;
 
   return (
     <Dialog open={isOpen} onOpenChange={(val) => !val && onClose()}>
@@ -97,7 +121,6 @@ export default function CreateBeneficiary({
 
         <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-x-4 gap-y-3 pt-4">
           
-          {/* 🌟 Connected Project: Waxaa loo sameeyay sax ahaan qaabka Gender iyo Unit Type */}
           <div className="col-span-2 space-y-1">
             <label className="text-xs font-semibold text-slate-500 uppercase">Connected Project</label>
             <Select 
@@ -113,16 +136,26 @@ export default function CreateBeneficiary({
               <SelectContent className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm">
                 {projects && projects.map((p) => (
                   <SelectItem key={p.id} value={String(p.id)} className="cursor-pointer">
-                    <div className="flex items-center gap-2">
-                      <span>{p.name}</span>
-                    </div>
+                    {p.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          {/* Full Name */}
+          {/* 🌟 PREMIUM COUNTER TRACKER BOX */}
+          {form.projectId && projectStats.target > 0 && (
+            <div className={`col-span-2 p-2.5 rounded-md border flex items-center justify-between text-xs font-medium transition-colors ${isLimitReached ? "bg-amber-50 dark:bg-amber-950/20 border-amber-200 text-amber-700 dark:text-amber-400" : "bg-emerald-50/50 dark:bg-emerald-950/10 border-emerald-100 text-emerald-800 dark:text-emerald-400"}`}>
+               <span className="flex items-center gap-1.5">
+                 {isLimitReached && <AlertTriangle size={14} className="animate-bounce" />}
+                 {isLimitReached ? "Mashruucu wuu buuxay (Allocation Full)" : "Booska Diyaarka ah (Allocation Status):"}
+               </span>
+               <span className="font-mono bg-white dark:bg-slate-900 px-2 py-0.5 rounded border shadow-sm">
+                 Registered: <strong>{projectStats.current}</strong> / {projectStats.target} Families
+               </span>
+            </div>
+          )}
+
           <div className="col-span-2 space-y-1">
             <label className="text-xs font-semibold text-slate-500 uppercase">Beneficiary Full Name</label>
             <Input
@@ -134,7 +167,6 @@ export default function CreateBeneficiary({
             />
           </div>
 
-          {/* Phone Number */}
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-500 uppercase">Phone Number</label>
             <Input
@@ -146,7 +178,6 @@ export default function CreateBeneficiary({
             />
           </div>
 
-          {/* ID / Card Number */}
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-500 uppercase">ID / Card Number</label>
             <Input
@@ -157,7 +188,6 @@ export default function CreateBeneficiary({
             />
           </div>
 
-          {/* Gender Select */}
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-500 uppercase">Gender</label>
             <Select 
@@ -177,7 +207,6 @@ export default function CreateBeneficiary({
             </Select>
           </div>
 
-          {/* Family Size */}
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-500 uppercase">Family Size</label>
             <Input
@@ -190,7 +219,6 @@ export default function CreateBeneficiary({
             />
           </div>
 
-          {/* Assistance Type */}
           <div className="col-span-2 space-y-1">
             <label className="text-xs font-semibold text-slate-500 uppercase">Assistance Type</label>
             <Input
@@ -202,7 +230,6 @@ export default function CreateBeneficiary({
             />
           </div>
 
-          {/* Quantity Received */}
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-500 uppercase">Distributed Qty</label>
             <Input
@@ -215,7 +242,6 @@ export default function CreateBeneficiary({
             />
           </div>
 
-          {/* Unit Type Select */}
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-500 uppercase">Unit Type</label>
             <Select 
@@ -238,7 +264,6 @@ export default function CreateBeneficiary({
             </Select>
           </div>
 
-          {/* Location */}
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-500 uppercase">Village / Camp Location</label>
             <Input
@@ -250,7 +275,6 @@ export default function CreateBeneficiary({
             />
           </div>
 
-          {/* Registration Date */}
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-500 uppercase">Registration Date</label>
             <Input
@@ -262,7 +286,6 @@ export default function CreateBeneficiary({
             />
           </div>
 
-          {/* Notes */}
           <div className="col-span-2 space-y-1">
             <label className="text-xs font-semibold text-slate-500 uppercase">Notes / Vulnerability Status</label>
             <Input
@@ -273,7 +296,6 @@ export default function CreateBeneficiary({
             />
           </div>
 
-          {/* Action Buttons */}
           <div className="col-span-2 flex justify-end gap-2 mt-2 pt-4 border-t border-slate-100 dark:border-slate-800">
             <Button type="button" variant="outline" onClick={onClose} className="h-9 text-xs border-slate-200 dark:border-slate-700">Cancel</Button>
             <Button 

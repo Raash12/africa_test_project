@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Edit2, Trash2, Plus, Search, Calendar, MapPin, Building2 } from "lucide-react";
+import { Edit2, Trash2, Plus, Search, Calendar, MapPin, Building2, Layers, DollarSign, Users } from "lucide-react";
 
 import useProjects from "@/hooks/useProjects";
 import { createProject, updateProject, deleteProject } from "@/services/projects/projectService";
@@ -28,7 +28,7 @@ export default function ListProject() {
 
   const handleEdit = (project) => {
     setProjectToEdit(project);
-    setIsOpen(true); // Bug fix: Halkan 'isOpen(true)' ayaa ku qornaa oo saxnay
+    setIsOpen(true);
   };
 
   const handleDelete = async (id) => {
@@ -42,7 +42,7 @@ export default function ListProject() {
     setProjectToEdit(null);
   };
 
-  // 🔍 SEARCH LOGIC
+  // 🔍 SEARCH LOGIC (Waxay baari kartaa Name, Grant, Location iyo xataa Status)
   const filteredProjects = useMemo(() => {
     const valid = (projects || []).filter(p => p && p.id && p.name);
     const searchLower = search.toLowerCase();
@@ -51,7 +51,8 @@ export default function ListProject() {
       return (
         p.name.toLowerCase().includes(searchLower) ||
         (p.grantName && p.grantName.toLowerCase().includes(searchLower)) ||
-        (p.location && p.location.toLowerCase().includes(searchLower))
+        (p.location && p.location.toLowerCase().includes(searchLower)) ||
+        (p.status && p.status.toLowerCase().includes(searchLower))
       );
     });
   }, [projects, search]);
@@ -65,7 +66,7 @@ export default function ListProject() {
   }, [filteredProjects, currentPage]);
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(amount || 0);
   };
 
   return (
@@ -109,9 +110,10 @@ export default function ListProject() {
             <table className="w-full text-sm text-left">
               <thead className="bg-slate-900 dark:bg-slate-800 text-white dark:text-slate-100 text-xs uppercase tracking-widest font-bold">
                 <tr>
-                  <th className="p-4">Project Details</th>
-                  <th className="p-4">Connected Grant Link</th>
-                  <th className="p-4">Budget Given</th>
+                  <th className="p-4">Project & Location</th>
+                  <th className="p-4">Connected Grant</th>
+                  <th className="p-4">Metrics (Qty & Target)</th>
+                  <th className="p-4">Financial Breakdown</th>
                   <th className="p-4">Timeline & Status</th>
                   <th className="p-4 text-center w-32">Actions</th>
                 </tr>
@@ -120,36 +122,66 @@ export default function ListProject() {
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {paginatedProjects.map((project) => (
                   <tr key={project.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                    {/* Project Info */}
+                    
+                    {/* 1: Project Info & Location */}
                     <td className="p-4">
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-blue-50 dark:bg-blue-950/40 text-[#1e3a8a] dark:text-blue-400 rounded-lg">
                           <Building2 size={16} />
                         </div>
-                        <div>
-                          <span className="font-bold text-slate-800 dark:text-slate-200 block">{project.name}</span>
-                          <span className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                            <MapPin size={12}/> {project.location}
+                        <div className="max-w-[220px]">
+                          <span className="font-bold text-slate-800 dark:text-slate-200 block truncate" title={project.name}>
+                            {project.name}
+                          </span>
+                          <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5 truncate" title={project.location}>
+                            <MapPin size={12} className="text-slate-400 shrink-0"/> {project.location || "No Location"}
                           </span>
                         </div>
                       </div>
                     </td>
                     
-                    {/* Linked Grant */}
+                    {/* 2: Linked Grant */}
                     <td className="p-4">
-                      <span className="font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1 rounded text-xs border border-blue-100 dark:border-blue-900">
-                        {project.grantName}
+                      <span className="font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1 rounded text-xs border border-blue-100 dark:border-blue-900 block w-fit">
+                        {project.grantName || "Linked Grant"}
                       </span>
                     </td>
 
-                    {/* Budget */}
-                    <td className="p-4 font-mono font-bold text-slate-900 dark:text-white">
-                      {formatCurrency(project.totalBudget || project.budget)}
+                    {/* 3: Metrics (Quantity & Families) */}
+                    <td className="p-4 space-y-1">
+                      <div className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                        <Layers size={13} className="text-slate-400" />
+                        <span>Qty: <strong className="text-slate-800 dark:text-slate-200">{project.quantity || 0}</strong></span>
+                        <span className="text-slate-300">|</span>
+                        <span>Unit: <strong className="text-slate-800 dark:text-slate-200">${project.unitPrice || 0}</strong></span>
+                      </div>
+                      <div className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                        <Users size={13} className="text-slate-400" />
+                        <span>Intend Fam: <strong className="text-emerald-600 dark:text-emerald-400">{project.intendFamily || 0}</strong></span>
+                      </div>
                     </td>
 
-                    {/* Timeline & Status */}
-                    <td className="p-4 text-xs text-slate-600 dark:text-slate-400 space-y-1">
-                      <div className="flex items-center gap-1"><Calendar size={12}/> {project.startDate} - {project.endDate}</div>
+                    {/* 4: Financial Breakdown (Total, Advance, Net) */}
+                    <td className="p-4 space-y-0.5 font-mono text-xs">
+                      <div className="flex justify-between max-w-[150px]">
+                        <span className="text-slate-400">Total:</span>
+                        <span className="font-bold text-slate-800 dark:text-white">{formatCurrency(project.totalBudget)}</span>
+                      </div>
+                      {project.advancePayment > 0 && (
+                        <div className="flex justify-between max-w-[150px] text-rose-500">
+                          <span>Adv:</span>
+                          <span>-{formatCurrency(project.advancePayment)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between max-w-[150px] pt-0.5 border-t border-slate-100 dark:border-slate-800 text-emerald-600 dark:text-emerald-400 font-bold">
+                        <span>Net:</span>
+                        <span>{formatCurrency(project.netImplementationBudget ?? project.totalBudget)}</span>
+                      </div>
+                    </td>
+
+                    {/* 5: Timeline & Status */}
+                    <td className="p-4 text-xs text-slate-600 dark:text-slate-400 space-y-1.5">
+                      <div className="flex items-center gap-1"><Calendar size={12} className="text-slate-400"/> {project.startDate} - {project.endDate}</div>
                       <div>
                         <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                           project.status === "Completed" 
@@ -158,12 +190,12 @@ export default function ListProject() {
                             ? "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400"
                             : "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400"
                         }`}>
-                          {project.status}
+                          {project.status || "Active"}
                         </span>
                       </div>
                     </td>
 
-                    {/* Actions */}
+                    {/* 6: Actions */}
                     <td className="p-4 text-center">
                       <div className="flex justify-center gap-2">
                         <button
