@@ -18,7 +18,8 @@ import Grants from "@/pages/grants/ListGrant";
 import Projects from "@/pages/projects/ListProject";
 import Beneficiaries from "@/pages/beneficiaries/ListBeneficiary"; 
 import ListSupplier from "@/pages/Suppliers/ListSupplier"; // 🌟 Suppliers Module path-kiisa
-import ListPurchaseOrder from "@/pages/Purchase/PurchaseOrder/ListPurchaseOrder"; // 🌟 CUSUB: Lagu daray Purchase Order Path
+import ListPurchaseOrder from "@/pages/Purchase/PurchaseOrder/ListPurchaseOrder";
+import ListPurchaseInvoice from "./pages/Purchase/PurchaseInvoice/ListPurchaseInvoice";
 
 // 🛡️ PROTECTED ROUTE COMPONENT (Wuxuu xalliyaa is-diidmada Brave iyo Chrome)
 function ProtectedRoute({ children }) {
@@ -102,6 +103,8 @@ export default function App() {
         
         {/* PURCHASE ORDER ROUTE */}
         <Route path="purchase-orders" element={<ListPurchaseOrder />} /> 
+        {/* PURCHASE INVOICE ROUTE */}
+        <Route path="purchase-invoices" element={<ListPurchaseInvoice />} />
       </Route>
 
       {/* Haddii uu qofku qoro URL khaldan, si toos ah ugu celi guriga */}
