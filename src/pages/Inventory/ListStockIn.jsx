@@ -93,11 +93,17 @@ export default function ListStockIn() {
     }
   };
 
-  if (loading) return <div className="flex justify-center p-20"><Loader2 className="animate-spin text-blue-600" size={32} /></div>;
-
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6 bg-slate-50 dark:bg-slate-950 min-h-screen">
+    <div className="p-6 max-w-7xl mx-auto space-y-6 bg-slate-50 dark:bg-slate-950 min-h-screen relative">
       
+      {/* KALIYA LOADING KAN AYAAN IDIINKU DARAY SXB OO BANNAANKA AH */}
+      {loading && (
+        <div className="absolute inset-0 bg-white/60 dark:bg-slate-950/60 backdrop-blur-sm z-50 flex flex-col items-center justify-center gap-2 rounded-xl">
+          <Loader2 className="animate-spin text-[#1e3a8a] dark:text-blue-500" size={35} />
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Soo raraya xogta...</p>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-xl border-l-8 border-[#1e3a8a] shadow-sm">
         <div>
           <h1 className="text-2xl font-bold uppercase tracking-tight">Stock In Inventory</h1>
@@ -133,22 +139,36 @@ export default function ListStockIn() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {paginatedEntries.map((e, idx) => (
-                <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                  <td className="p-4 font-mono font-bold text-blue-700">{e.piCode}</td>
-                  <td className="p-4 font-bold flex items-center gap-2">
-                    <Package size={16} className="text-blue-600" /> {e.itemName}
-                  </td>
-                  <td className="p-4"><div className="flex items-center gap-1"><Home size={14} /> {e.warehouseName}</div></td>
-                  <td className="p-4 text-center font-bold">{e.quantity}</td>
-                  <td className="p-4 text-right font-bold text-green-600">${(Number(e.quantity) * Number(e.costPrice || 0)).toFixed(2)}</td>
-                  <td className="p-4 text-center">
-                    <Button variant="ghost" size="sm" onClick={() => initiateDelete(e)}>
-                      <Trash2 size={16} className="text-red-500" />
-                    </Button>
+              {paginatedEntries.length === 0 && !loading ? (
+                <tr>
+                  <td colSpan={6} className="text-center text-slate-400 text-xs py-10">
+                    Wax xog ah oo la helay ma jirto sxb.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                paginatedEntries.map((e, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-4 font-mono font-bold text-blue-700">{e.piCode}</td>
+                    <td className="p-4 font-bold flex items-center gap-2">
+                      <Package size={16} className="text-blue-600" /> {e.itemName}
+                    </td>
+                    <td className="p-4">
+                      <div className="flex items-center gap-1">
+                        <Home size={14} /> {e.warehouseName}
+                      </div>
+                    </td>
+                    <td className="p-4 text-center font-bold">{e.quantity}</td>
+                    <td className="p-4 text-right font-bold text-green-600">
+                      ${(Number(e.quantity) * Number(e.costPrice || 0)).toFixed(2)}
+                    </td>
+                    <td className="p-4 text-center">
+                      <Button variant="ghost" size="sm" onClick={() => initiateDelete(e)}>
+                        <Trash2 size={16} className="text-red-500" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </CardContent>
