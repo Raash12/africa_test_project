@@ -9,10 +9,18 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select"; 
-import { Plus, Trash2, ShoppingCart, Layers, UserCircle, Package } from "lucide-react";
+import { Plus, Trash2, ShoppingCart, Layers, UserCircle, Package, Landmark } from "lucide-react";
 import useSuppliers from "@/hooks/useSuppliers";
 import usePrograms from "@/hooks/usePrograms"; 
 import useItems from "@/hooks/useItems"; 
+
+// Tusaale ahaan Account Categories-ka u raran dhanka Accounting-ka
+const ACCOUNT_CATEGORIES = [
+  { id: "exp_project_direct", name: "Direct Project Expense" },
+  { id: "exp_office_supplies", name: "Office & Administrative Supplies" },
+  { id: "exp_equipment", name: "Equipment Purchase" },
+  { id: "exp_logistics", name: "Logistics & Transport" }
+];
 
 export default function CreatePurchaseOrder({ isOpen, onClose, refreshPOs, poToEdit, createPurchaseOrder, updatePurchaseOrder }) {
   const { suppliers = [], loading: loadingSuppliers } = useSuppliers();
@@ -22,6 +30,7 @@ export default function CreatePurchaseOrder({ isOpen, onClose, refreshPOs, poToE
   const [form, setForm] = useState({
     supplierId: "",
     programId: "", 
+    accountCategory: "", // Kani waa field-ka cusub ee accounting-ka raran
     items: [{ itemId: "", quantity: 0, unitPrice: 0, subTotal: 0 }], 
     totalAmount: 0,
     status: "PENDING"
@@ -34,6 +43,7 @@ export default function CreatePurchaseOrder({ isOpen, onClose, refreshPOs, poToE
       setForm({
         supplierId: "",
         programId: "",
+        accountCategory: "",
         items: [{ itemId: "", quantity: 0, unitPrice: 0, subTotal: 0 }],
         totalAmount: 0,
         status: "PENDING"
@@ -164,6 +174,30 @@ export default function CreatePurchaseOrder({ isOpen, onClose, refreshPOs, poToE
             </div>
           </div>
 
+          {/* ACCOUNT CATEGORY (ACCOUNTING INTEGRATION) */}
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-500 uppercase dark:text-slate-400">Account Category (Accounting)</label>
+            <div className="relative">
+              <Select
+                value={form.accountCategory}
+                onValueChange={(value) => setForm({ ...form, accountCategory: value })}
+                required
+              >
+                <SelectTrigger className="w-full h-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-600 outline-none pl-10 text-sm">
+                  <SelectValue placeholder="-- Select Expense Account --" />
+                </SelectTrigger>
+                <SelectContent className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100">
+                  {ACCOUNT_CATEGORIES.map((acc) => (
+                    <SelectItem key={acc.id} value={acc.id} className="cursor-pointer text-xs">
+                      {acc.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Landmark className="absolute left-3 top-3 text-slate-400 pointer-events-none" size={15} />
+            </div>
+          </div>
+
           {/* DYNAMIC ITEMS MANAGEMENT */}
           <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-3">
             <div className="flex justify-between items-center mb-1">
@@ -173,11 +207,10 @@ export default function CreatePurchaseOrder({ isOpen, onClose, refreshPOs, poToE
               </Button>
             </div>
 
-            <div className="space-y-3 max-h-[260px] overflow-y-auto pr-1">
+            <div className="space-y-3 max-h-[200px] overflow-y-auto pr-1">
               {form.items.map((item, index) => (
                 <div key={index} className="space-y-2 bg-slate-50 dark:bg-slate-800/40 p-3 rounded-lg border border-slate-100 dark:border-slate-800 relative">
                   
-                  {/* Safka 1aad: Shadcn UI Select for Items */}
                   <div className="flex items-center gap-2">
                     <div className="flex-1 relative">
                       <Select
@@ -214,7 +247,6 @@ export default function CreatePurchaseOrder({ isOpen, onClose, refreshPOs, poToE
                     </button>
                   </div>
 
-                  {/* Safka 2aad: Qty, Price, iyo Subtotal */}
                   <div className="grid grid-cols-3 gap-2 items-center pt-1 border-t border-dashed border-slate-200 dark:border-slate-700">
                     <div>
                       <span className="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">Qty</span>

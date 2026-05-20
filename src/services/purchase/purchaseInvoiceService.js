@@ -1,7 +1,7 @@
+// services/purchase/purchaseInvoiceService.js
 import { db } from "@/lib/firebase";
 import { collection, addDoc, getDocs, query, orderBy, limit, doc, updateDoc, deleteDoc } from "firebase/firestore";
 
-// 1. Toos u dhal wejiga Invoice-ka (Auto-increment Number)
 const generateInvoiceNumber = async () => {
   const currentYear = new Date().getFullYear();
   const invoiceRef = collection(db, "purchase_invoices");
@@ -18,7 +18,6 @@ const generateInvoiceNumber = async () => {
   return `PI-${currentYear}-001`;
 };
 
-// 2. Abuur Invoice Cusub
 export const createPurchaseInvoice = async (invoiceData) => {
   try {
     const invoiceNumber = await generateInvoiceNumber();
@@ -36,7 +35,6 @@ export const createPurchaseInvoice = async (invoiceData) => {
   }
 };
 
-// 3. Wax ka beddel Invoice jira (Sida Payment Status-ka)
 export const updatePurchaseInvoice = async (id, updatedData) => {
   try {
     const docRef = doc(db, "purchase_invoices", id);
@@ -48,7 +46,6 @@ export const updatePurchaseInvoice = async (id, updatedData) => {
   }
 };
 
-// 4. Tirtir Invoice
 export const deletePurchaseInvoice = async (id) => {
   try {
     const docRef = doc(db, "purchase_invoices", id);

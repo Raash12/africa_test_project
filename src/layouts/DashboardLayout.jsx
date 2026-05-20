@@ -22,9 +22,13 @@ import {
   UserCheck,
   FolderHeart, 
   Truck,
-  FileText, // 🌟 CUSUB: Icon-ka Purchase Order
-  Receipt,  // 🌟 CUSUB: Icon-ka Purchase Invoice
-  ShoppingCart, // 🌟 CUSUB: Icon-ka Waalidka Purchase
+  FileText, 
+  Receipt,   
+  ShoppingCart, 
+  CreditCard,
+  Home,
+  ArrowUpRight, // 🌟 CUSUB: Icon-ka Stock In
+  ArrowDownLeft, // 🌟 CUSUB: Icon-ka Stock Out
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -36,26 +40,31 @@ export default function DashboardLayout() {
   const [open, setOpen] = useState(true);
   const [dark, setDark] = useState(false);
   
-  // 🌟 States-ka lagu maamulo Dropdowns-ka
+  // States-ka lagu maamulo Dropdowns-ka
   const [hrmOpen, setHrmOpen] = useState(false);
-  const [pmOpen, setPmOpen] = useState(false); // PM = Program Management
-  const [accountOpen, setAccountOpen] = useState(false); // Account Dropdown
-  const [purchaseOpen, setPurchaseOpen] = useState(false); // 🌟 CUSUB: Purchase Dropdown State
+  const [pmOpen, setPmOpen] = useState(false); 
+  const [accountOpen, setAccountOpen] = useState(false); 
+  const [purchaseOpen, setPurchaseOpen] = useState(false); 
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [inventoryOpen, setInventoryOpen] = useState(false); // Inventory Dropdown State
 
   const location = useLocation();
 
-  // Navigation-ka caadiga ah
+  // Navigation-ka caadiga ah (Kaliya Dashboard)
   const navItems = [
     {
       name: "Dashboard",
       path: "/",
       icon: LayoutDashboard,
     },
-    {
-      name: "Items",
-      path: "/items",
-      icon: Package,
-    },
+  ];
+
+  // 🌟 CUSUB & HORUMARINTA: Kooxda hoos timaada Waalidka Inventory
+  const inventoryItems = [
+    { name: "Items", path: "/items", icon: Package },
+    { name: "Warehouse", path: "/warehouses", icon: Home },
+    { name: "Stock In", path: "/stock-in", icon: ArrowUpRight },   // 🌟 CUSUB
+    { name: "Stock Out", path: "/stock-out", icon: ArrowDownLeft }, // 🌟 CUSUB
   ];
 
   // Kooxda hoos timaada Program Management (Operations)
@@ -72,16 +81,23 @@ export default function DashboardLayout() {
     { name: "Suppliers", path: "/suppliers", icon: Truck },
   ];
 
-  // 🌟 CUSUB: Kooxda hoos timaada Waalidka Purchase
+  // Kooxda hoos timaada Waalidka Purchase
   const purchaseItems = [
     { name: "Purchase Order", path: "/purchase-orders", icon: FileText },
     { name: "Purchase Invoice", path: "/purchase-invoices", icon: Receipt },
   ];
 
+  // Kooxda hoos timaada Waalidka Payment
+  const paymentItems = [
+    { name: "Payment Entry", path: "/payment-entries", icon: CreditCard },
+  ];
+
   // Hubinta firfircoonida si Parent-ka loo iftiimiyo
+  const isInventoryActive = inventoryItems.some(item => location.pathname === item.path);
   const isPmActive = programManagementItems.some(item => location.pathname === item.path);
   const isAccountActive = accountItems.some(item => location.pathname === item.path);
-  const isPurchaseActive = purchaseItems.some(item => location.pathname === item.path); // 🌟 CUSUB
+  const isPurchaseActive = purchaseItems.some(item => location.pathname === item.path);
+  const isPaymentActive = paymentItems.some(item => location.pathname === item.path);
   const isHrmActive = location.pathname === "/employees" || location.pathname === "/users";
 
   return (
@@ -104,9 +120,9 @@ export default function DashboardLayout() {
               <div className="flex items-center gap-3">
                 <div className="p-1.5 bg-white rounded-lg">
                     <img
-                        src={logo}
-                        alt="AIF Logo"
-                        className="w-8 h-8 object-contain"
+                      src={logo}
+                      alt="AIF Logo"
+                      className="w-8 h-8 object-contain"
                     />
                 </div>
                 <div>
@@ -129,7 +145,7 @@ export default function DashboardLayout() {
 
           {/* NAVIGATION */}
           <nav className="space-y-1.5 flex-1 overflow-y-auto">
-            {/* Main Items (Dashboard & Items) */}
+            {/* Main Items (Dashboard) */}
             {navItems.map((item) => {
               const Icon = item.icon;
               const active = location.pathname === item.path;
@@ -155,6 +171,68 @@ export default function DashboardLayout() {
                 </Link>
               );
             })}
+
+            {/* PARENT: INVENTORY */}
+            <div className="space-y-1">
+              <button
+                onClick={() => {
+                  if (!open) setOpen(true);
+                  setInventoryOpen(!inventoryOpen);
+                }}
+                className={`
+                  w-full flex items-center justify-between
+                  px-4 py-3 rounded-xl
+                  transition-all duration-200
+                  text-sm font-medium
+                  ${
+                    isInventoryActive
+                      ? "text-white bg-slate-800/50 font-semibold" 
+                      : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                  }
+                `}
+              >
+                <div className="flex items-center gap-3">
+                  <Package size={20} className={isInventoryActive ? "text-green-500" : ""} />
+                  {open && <span>Inventory</span>}
+                </div>
+                {open && (
+                  <ChevronDown 
+                    size={16} 
+                    className={`transition-transform duration-200 ${inventoryOpen ? "rotate-180" : ""}`} 
+                  />
+                )}
+              </button>
+
+              {/* Child Items ee Inventory (Items, Warehouse, Stock In, Stock Out) */}
+              {inventoryOpen && open && (
+                <div className="pl-6 space-y-1 transition-all duration-200">
+                  {inventoryItems.map((child) => {
+                    const ChildIcon = child.icon;
+                    const isChildActive = location.pathname === child.path;
+                    
+                    return (
+                      <Link
+                        key={child.name}
+                        to={child.path}
+                        className={`
+                          flex items-center gap-3
+                          px-4 py-2.5 rounded-xl
+                          text-xs font-medium transition-all duration-200
+                          ${
+                            isChildActive
+                              ? "bg-green-600 text-white shadow-md shadow-green-900/10"
+                              : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                          }
+                        `}
+                      >
+                        <ChildIcon size={16} />
+                        <span>{child.name}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
             {/* PARENT 1: PROGRAM MANAGEMENT */}
             <div className="space-y-1">
@@ -280,7 +358,7 @@ export default function DashboardLayout() {
               )}
             </div>
 
-            {/* 🌟 PARENT 4: PURCHASE (Cusub sxb) */}
+            {/* PARENT 3: PURCHASE */}
             <div className="space-y-1">
               <button
                 onClick={() => {
@@ -311,7 +389,7 @@ export default function DashboardLayout() {
                 )}
               </button>
 
-              {/* Child Items ee Purchase (Purchase Order & Invoice) */}
+              {/* Child Items ee Purchase */}
               {purchaseOpen && open && (
                 <div className="pl-6 space-y-1 transition-all duration-200">
                   {purchaseItems.map((child) => {
@@ -342,7 +420,69 @@ export default function DashboardLayout() {
               )}
             </div>
 
-            {/* PARENT 3: HRM */}
+            {/* PARENT 4: PAYMENT */}
+            <div className="space-y-1">
+              <button
+                onClick={() => {
+                  if (!open) setOpen(true);
+                  setPaymentOpen(!paymentOpen);
+                }}
+                className={`
+                  w-full flex items-center justify-between
+                  px-4 py-3 rounded-xl
+                  transition-all duration-200
+                  text-sm font-medium
+                  ${
+                    isPaymentActive
+                      ? "text-white bg-slate-800/50 font-semibold" 
+                      : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                  }
+                `}
+              >
+                <div className="flex items-center gap-3">
+                  <CreditCard size={20} className={isPaymentActive ? "text-green-500" : ""} />
+                  {open && <span>Payment</span>}
+                </div>
+                {open && (
+                  <ChevronDown 
+                    size={16} 
+                    className={`transition-transform duration-200 ${paymentOpen ? "rotate-180" : ""}`} 
+                  />
+                )}
+              </button>
+
+              {/* Child Items ee Payment */}
+              {paymentOpen && open && (
+                <div className="pl-6 space-y-1 transition-all duration-200">
+                  {paymentItems.map((child) => {
+                    const ChildIcon = child.icon;
+                    const isChildActive = location.pathname === child.path;
+                    
+                    return (
+                      <Link
+                        key={child.name}
+                        to={child.path}
+                        className={`
+                          flex items-center gap-3
+                          px-4 py-2.5 rounded-xl
+                          text-xs font-medium transition-all duration-200
+                          ${
+                            isChildActive
+                              ? "bg-green-600 text-white shadow-md shadow-green-900/10"
+                              : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                          }
+                        `}
+                      >
+                        <ChildIcon size={16} />
+                        <span>{child.name}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* PARENT 5: HRM */}
             <div className="space-y-1">
               <button
                 onClick={() => {

@@ -1,13 +1,13 @@
-// components/purchase/ListPurchaseInvoice.jsx
+// pages/Inventory/ListWarehouse.jsx
 import { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Edit2, Trash2, Plus, Search, FileSpreadsheet, Loader2, Link2 } from "lucide-react";
+import { Edit2, Trash2, Plus, Search, Loader2, Home, MapPin, User } from "lucide-react";
 import { toast } from "sonner"; 
 
-import usePurchaseInvoices from "@/hooks/usePurchaseInvoices";
-import { deletePurchaseInvoice } from "@/services/purchase/purchaseInvoiceService";
-import CreatePurchaseInvoice from "./CreatePurchaseInvoice";
+import useWarehouse from "@/hooks/useWarehouse";
+import { deleteWarehouse } from "@/services/inventory/warehouseService";
+import CreateWarehouse from "./CreateWarehouse";
 
 import {
   AlertDialog,
@@ -29,63 +29,61 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 
-export default function ListPurchaseInvoice() {
-  const { purchaseInvoices = [], loading, refreshPIs } = usePurchaseInvoices();
+export default function ListWarehouse() {
+  const { warehouses = [], loading, refreshWarehouses } = useWarehouse();
   const [isOpen, setIsOpen] = useState(false);
-  const [piToEdit, setPiToEdit] = useState(null);
+  const [warehouseToEdit, setWarehouseToEdit] = useState(null);
   const [search, setSearch] = useState("");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
-  const [piToDelete, setPiToDelete] = useState(null);
+  const [warehouseToDelete, setWarehouseToDelete] = useState(null);
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
-  const handleEdit = (pi) => {
-    setPiToEdit(pi);
+  const handleEdit = (wh) => {
+    setWarehouseToEdit(wh);
     setIsOpen(true);
   };
 
-  const initiateDelete = (pi) => {
-    setPiToDelete(pi);
+  const initiateDelete = (wh) => {
+    setWarehouseToDelete(wh);
     setIsDeleteAlertOpen(true);
   };
 
   const handleConfirmDelete = async () => {
-    if (!piToDelete || isSubmitting) return;
+    if (!warehouseToDelete || isSubmitting) return;
     setIsSubmitting(true);
     try {
-      await deletePurchaseInvoice(piToDelete.id);
-      await refreshPIs();
-      toast.success(`Invoice-kii ${piToDelete.invoiceNumber} waa la tirtiray!`);
+      await deleteWarehouse(warehouseToDelete.id);
+      await refreshWarehouses();
+      toast.success(`Bakhaarkii ${warehouseToDelete.warehouseName} waa la tirtiray!`);
     } catch (error) {
       toast.error("Wuu guuldarraystay tirtirku sxb.");
     } finally {
       setIsSubmitting(false);
       setIsDeleteAlertOpen(false);
-      setPiToDelete(null);
+      setWarehouseToDelete(null);
     }
   };
 
-  const filteredPIs = useMemo(() => {
+  const filteredWarehouses = useMemo(() => {
     const searchLower = search.toLowerCase();
-    return purchaseInvoices.filter((p) => {
+    return warehouses.filter((w) => {
       return (
-        p.invoiceNumber?.toLowerCase().includes(searchLower) ||
-        p.poNumber?.toLowerCase().includes(searchLower) ||
-        p.supplierName?.toLowerCase().includes(searchLower) ||
-        p.program?.toLowerCase().includes(searchLower) ||
-        p.status?.toLowerCase().includes(searchLower)
+        w.warehouseName?.toLowerCase().includes(searchLower) ||
+        w.location?.toLowerCase().includes(searchLower) ||
+        w.manager?.toLowerCase().includes(searchLower)
       );
     });
-  }, [purchaseInvoices, search]);
+  }, [warehouses, search]);
 
-  const totalPages = Math.max(Math.ceil(filteredPIs.length / itemsPerPage), 1);
-  const paginatedPIs = useMemo(() => {
+  const totalPages = Math.max(Math.ceil(filteredWarehouses.length / itemsPerPage), 1);
+  const paginatedWarehouses = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredPIs.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredPIs, currentPage]);
+    return filteredWarehouses.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredWarehouses, currentPage]);
 
   if (loading) {
     return (
@@ -101,11 +99,11 @@ export default function ListPurchaseInvoice() {
       {/* BANNER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-xl border-l-8 border-[#1e3a8a] dark:border-blue-500 shadow-sm border border-slate-100 dark:border-slate-800">
         <div>
-          <h1 className="text-2xl font-bold uppercase tracking-tight">Purchase Invoices</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Manage Vendor Bills & Payments</p>
+          <h1 className="text-2xl font-bold uppercase tracking-tight">Warehouses / Storage</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Manage Warehouse Locations & Storekeepers</p>
         </div>
-        <Button onClick={() => { setPiToEdit(null); setIsOpen(true); }} className="bg-[#1e3a8a] dark:bg-blue-600 text-white gap-2 cursor-pointer">
-          <Plus size={18} /> New Invoice
+        <Button onClick={() => { setWarehouseToEdit(null); setIsOpen(true); }} className="bg-[#1e3a8a] dark:bg-blue-600 text-white gap-2 cursor-pointer border-none">
+          <Plus size={18} /> New Warehouse
         </Button>
       </div>
 
@@ -114,8 +112,8 @@ export default function ListPurchaseInvoice() {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
         <input
           type="text"
-          placeholder="Search Invoice, PO, Vendor or Program..."
-          className="w-full pl-10 pr-4 py-2.5 border border-slate-200 dark:border-slate-800 rounded-lg outline-none bg-white dark:bg-slate-900 text-xs"
+          placeholder="Search Warehouse, Location or Manager..."
+          className="w-full pl-10 pr-4 py-2.5 border border-slate-200 dark:border-slate-800 rounded-lg outline-none bg-white dark:bg-slate-900 text-xs text-slate-800 dark:text-slate-200"
           value={search}
           onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
         />
@@ -128,56 +126,50 @@ export default function ListPurchaseInvoice() {
             <table className="w-full text-sm text-left">
               <thead className="bg-[#1e3a8a] dark:bg-slate-800 text-white text-xs uppercase font-bold tracking-wider">
                 <tr>
-                  <th className="p-4">Invoice No</th>
-                  <th className="p-4">Linked PO</th>
-                  <th className="p-4">Supplier / Vendor</th>
-                  <th className="p-4">Program / Project</th>
-                  <th className="p-4">Total Amount</th>
-                  <th className="p-4 text-center">Status</th>
+                  <th className="p-4">Warehouse Name</th>
+                  <th className="p-4">Location / Address</th>
+                  <th className="p-4">Manager / Keeper</th>
                   <th className="p-4 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {paginatedPIs.map((pi) => (
-                  <tr key={pi.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                    <td className="p-4 font-mono font-bold flex items-center gap-2">
-                      <FileSpreadsheet size={16} className="text-blue-600" /> {pi.invoiceNumber}
+                {paginatedWarehouses.map((wh) => (
+                  <tr key={wh.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                    <td className="p-4 font-bold flex items-center gap-2 tracking-tight text-xs uppercase">
+                      <Home size={16} className="text-blue-600 dark:text-blue-500" /> {wh.warehouseName}
                     </td>
-                    <td className="p-4 font-mono text-xs">
-                      {pi.poNumber ? (
-                        <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200/50 dark:border-slate-700 flex items-center gap-1 w-fit">
-                          <Link2 size={12} className="text-blue-500" /> {pi.poNumber}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400 italic">Direct Bill</span>
-                      )}
+                    <td className="p-4 text-xs font-medium text-slate-600 dark:text-slate-400">
+                      <div className="flex items-center gap-1">
+                        <MapPin size={14} className="text-slate-400" /> {wh.location}
+                      </div>
                     </td>
-                    <td className="p-4 font-medium">{pi.supplierName}</td>
-                    <td className="p-4 text-xs text-slate-600 dark:text-slate-400">{pi.program}</td>
-                    <td className="p-4 font-mono font-bold text-[#1e3a8a] dark:text-blue-400">${(pi.totalAmount || 0).toLocaleString()}</td>
-                    <td className="p-4 text-center">
-                      <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full ${
-                        pi.status === "UNPAID" ? "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400" :
-                        pi.status === "PAID" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400" : 
-                        "bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-400"
-                      }`}>
-                        {pi.status || "UNPAID"}
-                      </span>
+                    <td className="p-4 text-xs font-medium">
+                      <div className="flex items-center gap-1">
+                        <User size={14} className="text-slate-400" /> {wh.manager}
+                      </div>
                     </td>
                     <td className="p-4 text-center">
                       <div className="flex justify-center gap-1">
-                        <button onClick={() => handleEdit(pi)} className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20 rounded-lg cursor-pointer border-none bg-transparent" title="Edit"><Edit2 size={16} /></button>
-                        <button onClick={() => initiateDelete(pi)} className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg cursor-pointer border-none bg-transparent" title="Delete"><Trash2 size={16} /></button>
+                        <button onClick={() => handleEdit(wh)} className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20 rounded-lg cursor-pointer border-none bg-transparent" title="Edit"><Edit2 size={16} /></button>
+                        <button onClick={() => initiateDelete(wh)} className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg cursor-pointer border-none bg-transparent" title="Delete"><Trash2 size={16} /></button>
                       </div>
                     </td>
                   </tr>
                 ))}
+
+                {paginatedWarehouses.length === 0 && (
+                  <tr>
+                    <td colSpan="4" className="text-center p-12 text-sm text-slate-400 italic">
+                      Bakhaarro diiwaangashan lama helin sxb.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
 
           {/* PAGINATION */}
-          {filteredPIs.length > 0 && (
+          {filteredWarehouses.length > 0 && (
             <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
               <Pagination>
                 <PaginationContent>
@@ -199,8 +191,8 @@ export default function ListPurchaseInvoice() {
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
         <AlertDialogContent className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
           <AlertDialogHeader>
-            <AlertDialogTitle>Ma hubtaa?</AlertDialogTitle>
-            <AlertDialogDescription>Invoice-ka {piToDelete?.invoiceNumber} waa la tirtiri doonaa si joogto ah.</AlertDialogDescription>
+            <AlertDialogTitle>Ma hubtaa sxb?</AlertDialogTitle>
+            <AlertDialogDescription>Bakhaarka {warehouseToDelete?.warehouseName} waa la tirtiri doonaa si joogto ah.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isSubmitting}>Maya</AlertDialogCancel>
@@ -211,8 +203,8 @@ export default function ListPurchaseInvoice() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* MODAL WINDOW */}
-      <CreatePurchaseInvoice isOpen={isOpen} onClose={() => { setIsOpen(false); setPiToEdit(null); }} refreshPIs={refreshPIs} piToEdit={piToEdit} />
+      {/* CREATE MODAL LINKING */}
+      <CreateWarehouse isOpen={isOpen} onClose={() => { setIsOpen(false); setWarehouseToEdit(null); }} refreshWarehouses={refreshWarehouses} warehouseToEdit={warehouseToEdit} />
     </div>
   );
 }

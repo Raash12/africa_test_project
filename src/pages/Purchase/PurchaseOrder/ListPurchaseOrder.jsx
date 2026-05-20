@@ -1,7 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Edit2, Trash2, Plus, Search, FileText, Calendar, CheckCircle2, XCircle } from "lucide-react";
+import { Edit2, Trash2, Plus, Search, FileText, Calendar, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner"; 
 
 import usePurchaseOrders from "@/hooks/usePurchaseOrders";
@@ -35,6 +35,9 @@ export default function ListPurchaseOrder() {
   const [poToEdit, setPoToEdit] = useState(null);
   const [search, setSearch] = useState("");
 
+  // 🔄 SUBMITTING STATE (LABA JEER GUJINTA)
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   // 🌟 STATUS UPDATE ALERT STATES
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [activePO, setActivePO] = useState(null);
@@ -60,9 +63,11 @@ export default function ListPurchaseOrder() {
   };
 
   // 🌟 CONFIRM DELETE BACKEND
-  const handleConfirmDelete = async () => {
-    if (!poToDelete) return;
+  const handleConfirmDelete = async (e) => {
+    if (e) e.preventDefault();
+    if (!poToDelete || isSubmitting) return;
 
+    setIsSubmitting(true);
     try {
       await deletePurchaseOrder(poToDelete.id);
       await refreshPOs();
@@ -71,6 +76,7 @@ export default function ListPurchaseOrder() {
       console.error("Error deleting PO:", error);
       toast.error("Wuu guuldarraystay tirtirku sxb.");
     } finally {
+      setIsSubmitting(false);
       setIsDeleteAlertOpen(false);
       setPoToDelete(null);
     }
@@ -86,8 +92,9 @@ export default function ListPurchaseOrder() {
   // 🌟 FUNCTION-KA RUNTA AH EE STATUS UPDATE
   const handleConfirmStatusChange = async (e) => {
     if (e) e.preventDefault();
-    if (!activePO || !pendingStatus) return;
+    if (!activePO || !pendingStatus || isSubmitting) return;
 
+    setIsSubmitting(true);
     const targetPO = activePO;
     const targetStatus = pendingStatus;
 
@@ -107,6 +114,7 @@ export default function ListPurchaseOrder() {
       console.error("Error updating PO status:", error);
       toast.error("Wuu guuldarraystay isbeddelku sxb.");
     } finally {
+      setIsSubmitting(false);
       setIsAlertOpen(false);
       setActivePO(null);
       setPendingStatus("");
@@ -136,6 +144,13 @@ export default function ListPurchaseOrder() {
   // 🔢 PAGINATION LOGIC
   const totalPages = Math.max(Math.ceil(filteredPOs.length / itemsPerPage), 1);
   
+  // 🛡️ Guaj ka ilaali haddii boggu ka bato inta guud ee boggaga hadda jira
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [filteredPOs, totalPages, currentPage]);
+
   const paginatedPOs = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     return filteredPOs.slice(startIndex, startIndex + itemsPerPage);
@@ -271,7 +286,7 @@ export default function ListPurchaseOrder() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => initiateDelete(po)} // 🌟 LABADELAY SHADCN ALERT DIALOG
+                          onClick={() => initiateDelete(po)}
                           className="p-2 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-all cursor-pointer"
                           title="Delete PO"
                         >
@@ -295,11 +310,11 @@ export default function ListPurchaseOrder() {
           {filteredPOs.length > 0 && (
             <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
               <Pagination>
-                <PaginationContent className="cursor-pointer">
+                <PaginationContent>
                   <PaginationItem>
                     <PaginationPrevious 
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                      className={`bg-white dark:bg-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700 ${currentPage === 1 ? "opacity-30 pointer-events-none" : ""}`}
+                      onClick={(e) => { e.preventDefault(); setCurrentPage((p) => Math.max(1, p - 1)); }}
+                      className={`bg-white dark:bg-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700 cursor-pointer ${currentPage === 1 ? "opacity-30 pointer-events-none" : ""}`}
                     />
                   </PaginationItem>
                   
@@ -307,10 +322,10 @@ export default function ListPurchaseOrder() {
                     <PaginationItem key={i}>
                       <PaginationLink 
                         isActive={currentPage === i + 1}
-                        onClick={() => setCurrentPage(i + 1)}
-                        className={currentPage === i + 1 
+                        onClick={(e) => { e.preventDefault(); setCurrentPage(i + 1); }}
+                        className={`cursor-pointer ${currentPage === i + 1 
                           ? "bg-[#1e3a8a] dark:bg-blue-600 text-white border-[#1e3a8a] dark:border-blue-600" 
-                          : "bg-white dark:bg-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700"}
+                          : "bg-white dark:bg-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700"}`}
                       >
                         {i + 1}
                       </PaginationLink>
@@ -319,8 +334,8 @@ export default function ListPurchaseOrder() {
 
                   <PaginationItem>
                     <PaginationNext 
-                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                      className={`bg-white dark:bg-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700 ${currentPage === totalPages ? "opacity-30 pointer-events-none" : ""}`}
+                      onClick={(e) => { e.preventDefault(); setCurrentPage((p) => Math.min(totalPages, p + 1)); }}
+                      className={`bg-white dark:bg-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700 cursor-pointer ${currentPage === totalPages ? "opacity-30 pointer-events-none" : ""}`}
                     />
                   </PaginationItem>
                 </PaginationContent>
@@ -344,17 +359,19 @@ export default function ListPurchaseOrder() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2">
-            <AlertDialogCancel className="bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border-none rounded-lg text-xs font-medium cursor-pointer">
+            <AlertDialogCancel disabled={isSubmitting} className="bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border-none rounded-lg text-xs font-medium cursor-pointer">
               cancel
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmStatusChange}
-              className={`text-white font-medium rounded-lg text-xs cursor-pointer border-none ${
+              disabled={isSubmitting}
+              className={`text-white font-medium rounded-lg text-xs cursor-pointer border-none flex items-center gap-1 ${
                 pendingStatus === "APPROVED" 
                   ? "bg-emerald-600 hover:bg-emerald-700" 
                   : "bg-rose-600 hover:bg-rose-700"
               }`}
             >
+              {isSubmitting && <Loader2 size={14} className="animate-spin" />}
               {pendingStatus === "APPROVED" ? "Approve" : "Reject"}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -371,17 +388,18 @@ export default function ListPurchaseOrder() {
             <AlertDialogDescription className="text-slate-500 dark:text-slate-400 text-sm">
               this (PO)  {" "}
               <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{poToDelete?.poNumber}</span> {" "}
-            
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2">
-            <AlertDialogCancel className="bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border-none rounded-lg text-xs font-medium cursor-pointer">
+            <AlertDialogCancel disabled={isSubmitting} className="bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border-none rounded-lg text-xs font-medium cursor-pointer">
                Cancel
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDelete}
-              className="bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg text-xs cursor-pointer border-none"
+              disabled={isSubmitting}
+              className="bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg text-xs cursor-pointer border-none flex items-center gap-1"
             >
+              {isSubmitting && <Loader2 size={14} className="animate-spin" />}
               delete
             </AlertDialogAction>
           </AlertDialogFooter>

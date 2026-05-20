@@ -20,6 +20,10 @@ import Beneficiaries from "@/pages/beneficiaries/ListBeneficiary";
 import ListSupplier from "@/pages/Suppliers/ListSupplier"; // 🌟 Suppliers Module path-kiisa
 import ListPurchaseOrder from "@/pages/Purchase/PurchaseOrder/ListPurchaseOrder";
 import ListPurchaseInvoice from "./pages/Purchase/PurchaseInvoice/ListPurchaseInvoice";
+import ListPaymentEntry from "./pages/Payment/ListPaymentEntry";
+import ListWarehouse from "./pages/Inventory/ListWarehouse";
+import ListStockIn from "./pages/Inventory/ListStockIn";
+
 
 // 🛡️ PROTECTED ROUTE COMPONENT (Wuxuu xalliyaa is-diidmada Brave iyo Chrome)
 function ProtectedRoute({ children }) {
@@ -105,6 +109,12 @@ export default function App() {
         <Route path="purchase-orders" element={<ListPurchaseOrder />} /> 
         {/* PURCHASE INVOICE ROUTE */}
         <Route path="purchase-invoices" element={<ListPurchaseInvoice />} />
+        {/* PAYMENT ENTRY ROUTE */}
+        <Route path="payment-entries" element={<ListPaymentEntry />} />
+        {/* WAREHOUSE ROUTE */}
+        <Route path="warehouses" element={<ListWarehouse />} />
+        {/* STOCK IN ROUTE */}
+        <Route path="stock-in" element={<ListStockIn />} />
       </Route>
 
       {/* Haddii uu qofku qoro URL khaldan, si toos ah ugu celi guriga */}

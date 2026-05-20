@@ -1,3 +1,4 @@
+// hooks/usePurchaseInvoices.js
 import { useState, useEffect, useCallback } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
@@ -15,20 +16,17 @@ export default function usePurchaseInvoices() {
       const programSnapshot = await getDocs(collection(db, "programs"));
       const supplierSnapshot = await getDocs(collection(db, "suppliers"));
 
-      // Diyaarinta Maabka Program-yada
       const programsMap = {};
       programSnapshot.forEach(doc => {
         programsMap[doc.id] = doc.data().programName || "N/A";
       });
 
-      // Diyaarinta Maabka Suppliers-ka
       const suppliersMap = {};
       supplierSnapshot.forEach(doc => {
         const data = doc.data();
         suppliersMap[doc.id] = data.company || data.supplierName || "N/A";
       });
 
-      // Isku xirka Xogta
       const invoicesList = invoiceSnapshot.docs.map((doc) => {
         const data = doc.data();
         return {
@@ -39,9 +37,7 @@ export default function usePurchaseInvoices() {
         };
       });
 
-      // Newest first sorting
       invoicesList.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
       setPurchaseInvoices(invoicesList);
     } catch (err) {
       console.error("Error loading purchase invoices:", err);
@@ -58,6 +54,7 @@ export default function usePurchaseInvoices() {
   return {
     purchaseInvoices,
     loading,
-    refreshInvoices: fetchInvoices
+    refreshInvoices: fetchInvoices,
+    refreshPIs: fetchInvoices // Waxaan u bixiyey alias si UI-ga u garto sxb
   };
 }
