@@ -23,6 +23,8 @@ import ListPurchaseInvoice from "./pages/Purchase/PurchaseInvoice/ListPurchaseIn
 import ListPaymentEntry from "./pages/Payment/ListPaymentEntry";
 import ListWarehouse from "./pages/Inventory/ListWarehouse";
 import ListStockIn from "./pages/Inventory/ListStockIn";
+import ListStockOut from "./pages/Inventory/ListStockOut"; // 🌟 Stock Out Module path-kiisa
+import ListAdjustment from "./pages/Inventory/listAdjustment";
 
 
 // 🛡️ PROTECTED ROUTE COMPONENT (Wuxuu xalliyaa is-diidmada Brave iyo Chrome)
@@ -115,6 +117,10 @@ export default function App() {
         <Route path="warehouses" element={<ListWarehouse />} />
         {/* STOCK IN ROUTE */}
         <Route path="stock-in" element={<ListStockIn />} />
+        {/* 🌟 STOCK OUT ROUTE */ }
+        <Route path="stock-out" element={<ListStockOut />} />
+        {/* ADJUSTMENT ROUTE */}
+        <Route path="stock-adjustment" element={<ListAdjustment />} />
       </Route>
 
       {/* Haddii uu qofku qoro URL khaldan, si toos ah ugu celi guriga */}

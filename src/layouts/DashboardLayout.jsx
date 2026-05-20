@@ -27,8 +27,9 @@ import {
   ShoppingCart, 
   CreditCard,
   Home,
-  ArrowUpRight, // 🌟 CUSUB: Icon-ka Stock In
-  ArrowDownLeft, // 🌟 CUSUB: Icon-ka Stock Out
+  ArrowUpRight, 
+  ArrowDownLeft, 
+  SlidersHorizontal, // 🌟 CUSUB: Icon-ka Stock Adjustment
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -46,7 +47,7 @@ export default function DashboardLayout() {
   const [accountOpen, setAccountOpen] = useState(false); 
   const [purchaseOpen, setPurchaseOpen] = useState(false); 
   const [paymentOpen, setPaymentOpen] = useState(false);
-  const [inventoryOpen, setInventoryOpen] = useState(false); // Inventory Dropdown State
+  const [inventoryOpen, setInventoryOpen] = useState(false); 
 
   const location = useLocation();
 
@@ -59,12 +60,13 @@ export default function DashboardLayout() {
     },
   ];
 
-  // 🌟 CUSUB & HORUMARINTA: Kooxda hoos timaada Waalidka Inventory
+  // 🌟 HORUMARINTA CUSUB: Waxaa halkan lagu daray Stock Adjustment sxb
   const inventoryItems = [
     { name: "Items", path: "/items", icon: Package },
     { name: "Warehouse", path: "/warehouses", icon: Home },
-    { name: "Stock In", path: "/stock-in", icon: ArrowUpRight },   // 🌟 CUSUB
-    { name: "Stock Out", path: "/stock-out", icon: ArrowDownLeft }, // 🌟 CUSUB
+    { name: "Stock In", path: "/stock-in", icon: ArrowUpRight },   
+    { name: "Stock Out", path: "/stock-out", icon: ArrowDownLeft }, 
+    { name: "Stock Adjustment", path: "/stock-adjustment", icon: SlidersHorizontal }, // 🌟 CUSUB
   ];
 
   // Kooxda hoos timaada Program Management (Operations)
@@ -203,7 +205,7 @@ export default function DashboardLayout() {
                 )}
               </button>
 
-              {/* Child Items ee Inventory (Items, Warehouse, Stock In, Stock Out) */}
+              {/* Child Items ee Inventory (Items, Warehouse, Stock In, Stock Out, Stock Adjustment) */}
               {inventoryOpen && open && (
                 <div className="pl-6 space-y-1 transition-all duration-200">
                   {inventoryItems.map((child) => {
