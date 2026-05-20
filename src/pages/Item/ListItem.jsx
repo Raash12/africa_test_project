@@ -1,27 +1,15 @@
 import { useState, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Edit2, Trash2, X, Check, Search } from "lucide-react"; 
+import { Edit2, Trash2, X, Check, Search, Loader2 } from "lucide-react"; 
 import { toast } from "sonner";
-
-// SHADCN COMPONENTS
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
+  Pagination, PaginationContent, PaginationItem, PaginationLink,
+  PaginationNext, PaginationPrevious,
 } from "@/components/ui/pagination";
 
 import useItems from "@/hooks/useItems";
@@ -31,64 +19,34 @@ import CreateItem from "./CreateItem";
 export default function ListItem() {
   const { items, refreshItems, loading } = useItems();
   const [search, setSearch] = useState("");
-  
-  // Inline Edit states
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({ itemName: "", description: "" });
-
-  // DELETE STATES
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
-
-  // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
-  // Start Edit Mode
-  const startEdit = (item) => {
-    setEditingId(item.id);
-    setEditForm({
-      itemName: item.itemName,
-      description: item.description || ""
-    });
-  };
-
-  // DELETE LOGIC
-  const confirmDelete = (id) => {
-    setItemToDelete(id);
-    setIsAlertOpen(true);
-  };
+  const confirmDelete = (id) => { setItemToDelete(id); setIsAlertOpen(true); };
 
   const executeDelete = async () => {
     try {
       await deleteItem(itemToDelete);
       await refreshItems();
       toast.success("Item deleted successfully.");
-    } catch (error) {
-      toast.error("Failed to delete item.");
-    } finally {
-      setIsAlertOpen(false);
-      setItemToDelete(null);
-    }
+    } catch (error) { toast.error("Failed to delete item."); }
+    finally { setIsAlertOpen(false); setItemToDelete(null); }
   };
 
-  // Save Update
   const handleUpdate = async (id) => {
     if (!editForm.itemName.trim()) return;
     try {
-      await updateItem(id, { 
-        itemName: editForm.itemName, 
-        description: editForm.description 
-      });
+      await updateItem(id, { itemName: editForm.itemName, description: editForm.description });
       setEditingId(null);
       await refreshItems();
       toast.success("Item updated successfully.");
-    } catch (error) {
-      toast.error("Failed to update item.");
-    }
+    } catch (error) { toast.error("Failed to update item."); }
   };
 
-  // Filter & Search Logic
   const filteredData = useMemo(() => {
     return (items || []).filter((item) =>
       item.itemName?.toLowerCase().includes(search.toLowerCase()) ||
@@ -96,9 +54,7 @@ export default function ListItem() {
     );
   }, [items, search]);
 
-  // Xisaabinta Pagination-ka
   const totalPages = Math.max(Math.ceil(filteredData.length / itemsPerPage), 1);
-  
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     return filteredData.slice(startIndex, startIndex + itemsPerPage);
@@ -140,32 +96,17 @@ export default function ListItem() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {loading ? (
-                <tr><td colSpan="3" className="p-8 text-center">Loading...</td></tr>
-              ) : paginatedData.map((item) => (
-                <tr key={item.id} className="hover:bg-slate-50">
-                  <td className="p-4">
-                    {editingId === item.id ? (
-                      <Input value={editForm.itemName} onChange={(e) => setEditForm({...editForm, itemName: e.target.value})} />
-                    ) : <span className="font-semibold">{item.itemName}</span>}
-                  </td>
-                  <td className="p-4">
-                    {editingId === item.id ? (
-                      <Input value={editForm.description} onChange={(e) => setEditForm({...editForm, description: e.target.value})} />
-                    ) : <span className="text-slate-500">{item.description || "—"}</span>}
-                  </td>
+              {loading ? <tr><td colSpan="3" className="p-8 text-center"><Loader2 className="animate-spin mx-auto"/></td></tr> : 
+              paginatedData.map((item) => (
+                <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
+                  <td className="p-4">{editingId === item.id ? <Input value={editForm.itemName} onChange={(e) => setEditForm({...editForm, itemName: e.target.value})} /> : <span className="font-semibold">{item.itemName}</span>}</td>
+                  <td className="p-4">{editingId === item.id ? <Input value={editForm.description} onChange={(e) => setEditForm({...editForm, description: e.target.value})} /> : <span className="text-slate-500">{item.description || "—"}</span>}</td>
                   <td className="p-4 text-center">
                     <div className="flex justify-center gap-2">
                       {editingId === item.id ? (
-                        <>
-                          <button onClick={() => handleUpdate(item.id)} className="p-2 text-green-600 hover:bg-green-50 rounded-lg"><Check size={16} /></button>
-                          <button onClick={() => setEditingId(null)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg"><X size={16} /></button>
-                        </>
+                        <><button onClick={() => handleUpdate(item.id)} className="p-2 text-green-600 hover:bg-green-50 rounded-lg"><Check size={16} /></button><button onClick={() => setEditingId(null)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg"><X size={16} /></button></>
                       ) : (
-                        <>
-                          <button onClick={() => startEdit(item)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><Edit2 size={16} /></button>
-                          <button onClick={() => confirmDelete(item.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={16} /></button>
-                        </>
+                        <><button onClick={() => { setEditingId(item.id); setEditForm({itemName: item.itemName, description: item.description}); }} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><Edit2 size={16} /></button><button onClick={() => confirmDelete(item.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={16} /></button></>
                       )}
                     </div>
                   </td>
@@ -176,14 +117,11 @@ export default function ListItem() {
         </div>
       </Card>
 
-      {/* DELETE ALERT DIALOG */}
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete this item from the inventory.
-            </AlertDialogDescription>
+            <AlertDialogDescription>This action cannot be undone. This will permanently delete this item from the inventory.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -191,25 +129,6 @@ export default function ListItem() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* PAGINATION */}
-      {filteredData.length > 0 && (
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"} />
-            </PaginationItem>
-            {[...Array(totalPages)].map((_, i) => (
-              <PaginationItem key={i}>
-                <PaginationLink onClick={() => setCurrentPage(i + 1)} isActive={currentPage === i + 1}>{i + 1}</PaginationLink>
-              </PaginationItem>
-            ))}
-            <PaginationItem>
-              <PaginationNext onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))} className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"} />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
-      )}
     </div>
   );
 }
