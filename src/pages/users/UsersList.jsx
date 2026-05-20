@@ -1,8 +1,19 @@
 import { useEffect, useState, useMemo } from "react";
 import { getUsers, deleteUser } from "@/services/userService";
 import { getEmployees } from "@/services/employees/employeeService";
+import { toast } from "sonner"; // Sonner Toast
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle 
+} from "@/components/ui/alert-dialog";
 import { Plus, Search, Edit2, Trash2 } from "lucide-react";
 import CreateUserForm from "./CreateUser";
 
@@ -22,10 +33,11 @@ export default function UsersList() {
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [userToDelete, setUserToDelete] = useState(null); // State-ka user-ka la tirtirayo
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5; // Waxaad u beddeli kartaa 8 haddaad rabto
+  const itemsPerPage = 5;
 
   const fetchData = async () => {
     const [u, e] = await Promise.all([getUsers(), getEmployees()]);
@@ -47,7 +59,6 @@ export default function UsersList() {
       .filter(u => u.fullName && u.fullName.toLowerCase().includes(search.toLowerCase()));
   }, [users, employees, search]);
 
-  // Xisaabinta bogagga guud (ugu yaraan waa 1)
   const totalPages = Math.max(Math.ceil(filteredData.length / itemsPerPage), 1);
   
   const paginatedData = useMemo(() => {
@@ -55,16 +66,23 @@ export default function UsersList() {
     return filteredData.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredData, currentPage]);
 
-  const handleDelete = async (id) => {
-    if (!confirm("Are you sure?")) return;
-    await deleteUser(id);
-    setUsers(users.filter(u => u.id !== id));
+  // Function-ka Tirtirista oo la casriyeeyay
+  const handleDelete = async () => {
+    if (!userToDelete) return;
+    try {
+      await deleteUser(userToDelete.id);
+      setUsers(users.filter(u => u.id !== userToDelete.id));
+      toast.success("User deleted successfully");
+      setUserToDelete(null);
+    } catch (error) {
+      toast.error("Failed to delete user");
+    }
   };
 
   return (
     <div className="p-6 space-y-6 bg-slate-50 dark:bg-slate-950 min-h-screen text-slate-900 dark:text-slate-100 transition-colors duration-300">
       
-      {/* HEADER BANNER - Africa Ihsan Aid Navy Style */}
+      {/* HEADER BANNER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-xl border-l-8 border-[#1e3a8a] dark:border-blue-500 shadow-sm transition-all">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50 uppercase tracking-tight">System Users</h1>
@@ -136,7 +154,7 @@ export default function UsersList() {
                         <Edit2 size={16}/>
                       </button>
                       <button 
-                        onClick={() => handleDelete(u.id)} 
+                        onClick={() => setUserToDelete(u)} 
                         className="p-2 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-all"
                       >
                         <Trash2 size={16}/>
@@ -149,46 +167,52 @@ export default function UsersList() {
           </table>
         </div>
         
-        {paginatedData.length === 0 && (
-          <div className="p-6 text-center text-slate-400 dark:text-slate-500 text-sm">No users found.</div>
-        )}
+        {/* ALERT DIALOG */}
+        <AlertDialog open={!!userToDelete} onOpenChange={() => setUserToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the user account.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">Delete</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
-        {/* SHADCN PAGINATION SECTION (Had iyo jeer wuu muuqanayaa sxb) */}
+        {/* PAGINATION */}
         <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
           <Pagination>
             <PaginationContent className="cursor-pointer">
               <PaginationItem>
                 <PaginationPrevious 
                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  className={`bg-white dark:bg-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700 ${currentPage === 1 ? "opacity-30 pointer-events-none" : ""}`}
+                  className={`bg-white dark:bg-slate-800 ${currentPage === 1 ? "opacity-30 pointer-events-none" : ""}`}
                 />
               </PaginationItem>
-              
               {[...Array(totalPages)].map((_, i) => (
                 <PaginationItem key={i}>
                   <PaginationLink 
                     isActive={currentPage === i + 1}
                     onClick={() => setCurrentPage(i + 1)}
-                    className={currentPage === i + 1 
-                      ? "bg-[#1e3a8a] dark:bg-blue-600 text-white border-[#1e3a8a] dark:border-blue-600" 
-                      : "bg-white dark:bg-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700"}
                   >
                     {i + 1}
                   </PaginationLink>
                 </PaginationItem>
               ))}
-
               <PaginationItem>
                 <PaginationNext 
                   onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  className={`bg-white dark:bg-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700 ${currentPage === totalPages ? "opacity-30 pointer-events-none" : ""}`}
+                  className={`bg-white dark:bg-slate-800 ${currentPage === totalPages ? "opacity-30 pointer-events-none" : ""}`}
                 />
               </PaginationItem>
             </PaginationContent>
           </Pagination>
         </div>
       </div>
-
     </div>
   );
 }
