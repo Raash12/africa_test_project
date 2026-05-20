@@ -1,4 +1,3 @@
-// hooks/useStockIn.js
 import { useState, useEffect, useCallback } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
@@ -12,48 +11,42 @@ export default function useStockIn() {
     setLoading(true);
     setError(null);
     try {
-      // 1. Soo dhuuq dhammaan collections-ka muhiimka ah
       const stockInSnapshot = await getDocs(collection(db, "stock_in"));
       const warehouseSnapshot = await getDocs(collection(db, "warehouses"));
       const itemsSnapshot = await getDocs(collection(db, "items"));
 
-      // 2. Diyaari Khariidad (Map) lagu ogaanayo magaca bakhaarka (Warehouse Name)
       const warehousesMap = {};
       warehouseSnapshot.forEach((doc) => {
         warehousesMap[doc.id] = doc.data().warehouseName || "N/A";
       });
 
-      // 3. Diyaari Khariidad (Map) lagu ogaanayo magaca alaabta (Item Name)
       const itemsMap = {};
       itemsSnapshot.forEach((doc) => {
-        itemsMap[doc.id] = doc.data().name || "Unknown Item";
+        itemsMap[doc.id] = doc.data().itemName || doc.data().name || "Unknown Item";
       });
 
-      // 4. Isku xidh xogta Stock In, Warehouses, iyo Items
       const entriesList = stockInSnapshot.docs.map((doc) => {
         const data = doc.data();
-        const qty = Number(data.quantity) || 0;
-        const cost = Number(data.costPrice) || 0;
+        
+        // Maadaama items ay array tahay, khariidaddooda halkan ku dhex sax sxb
+        const formattedItems = (data.items || []).map(item => ({
+          ...item,
+          itemName: itemsMap[item.itemId] || item.itemName || "Unknown Item"
+        }));
 
         return {
           id: doc.id,
           ...data,
-          // Haddii itemName uu database-ka ku dhex jiray ama map-ka laga dhuuqo
-          itemName: itemsMap[data.itemId] || data.itemName || "Unknown Item",
-          // Sidoo kale bakhaarka
+          items: formattedItems,
           warehouseName: warehousesMap[data.warehouseId] || data.warehouseName || "N/A",
-          // Xisaabi wadarta guud si dynamic ah haddii loo baahdo
-          totalValue: data.totalValue || qty * cost,
         };
       });
 
-      // 5. U kala sooc si kii ugu dambeeyey uu kor u jiro (Newest First)
-      entriesList.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      
+      entriesList.sort((a, b) => new Date(b.receivedAt || b.createdAt) - new Date(a.receivedAt || a.createdAt));
       setStockInEntries(entriesList);
     } catch (err) {
       console.error("Error loading stock in entries:", err);
-      setError(err.message || "Khalad ayaa dhacay xilliga soo dhuuqista Stock In sxb.");
+      setError(err.message || "Khalad ayaa dhacay.");
     } finally {
       setLoading(false);
     }
@@ -63,10 +56,5 @@ export default function useStockIn() {
     fetchStockInEntries();
   }, [fetchStockInEntries]);
 
-  return {
-    stockInEntries,
-    loading,
-    error,
-    refreshStockIn: fetchStockInEntries,
-  };
+  return { stockInEntries, loading, error, refreshStockIn: fetchStockInEntries };
 }

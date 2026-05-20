@@ -25,11 +25,13 @@ import {
 } from "@/components/ui/pagination";
 
 import useProjects from "@/hooks/useProjects";
+import useStockIn from "@/hooks/useStockIn"; // 🌟 Lagu daray hook-gii Stock In
 import { createProject, updateProject, deleteProject } from "@/services/projects/projectService";
 import CreateProject from "./CreateProject";
 
 export default function ListProject() {
   const { projects = [], grants = [], refreshProjects } = useProjects();
+  const { stockInEntries = [] } = useStockIn(); // 🌟 Soo dhuuq alaabta kaydka taal sxb
   const [isOpen, setIsOpen] = useState(false);
   const [projectToEdit, setProjectToEdit] = useState(null);
   const [search, setSearch] = useState("");
@@ -203,12 +205,14 @@ export default function ListProject() {
         </Pagination>
       )}
 
+      {/* 🌟 Halkan waxaa lagu daray stockItems={stockInEntries} */}
       <CreateProject 
         isOpen={isOpen} 
         onClose={handleCloseModal} 
         refreshProjects={refreshProjects} 
         projectToEdit={projectToEdit}
         grants={grants}
+        stockItems={stockInEntries} 
         createProject={createProject}
         updateProject={updateProject}
       />

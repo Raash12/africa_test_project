@@ -4,6 +4,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,15 +14,17 @@ import {
   SelectItem, 
   SelectTrigger, 
   SelectValue 
-} from "@/components/ui/select"; // 🌟 Lagu daray shadcn/ui select
-import { FolderKanban } from "lucide-react";
+} from "@/components/ui/select"; 
+import { FolderKanban, Package } from "lucide-react";
 
 export default function CreateProject({ 
   isOpen, 
   onClose, 
   refreshProjects, 
+  refreshStock, // 🔥 Waxaan ku darnay props-kaan si stock-ka dropdown-ka ku jira loo dynamic gareeyo
   projectToEdit, 
-  grants, 
+  grants = [], 
+  stockItems = [], 
   createProject, 
   updateProject 
 }) {
@@ -29,8 +32,11 @@ export default function CreateProject({
     name: "",
     grantId: "",
     grantTotalAmount: 0,      
+    stockItemId: "",        
+    stockItemName: "",      
+    stockAvailableQty: Infinity, 
     quantity: "",              
-    unitPrice: "",             
+    unitPrice: "",              
     totalBudget: 0,            
     advancePayment: "",        
     netImplementationBudget: 0, 
@@ -41,7 +47,7 @@ export default function CreateProject({
     description: "",
   });
 
-  // 1. 🔄 Marka Grant la doorto, kaydi inta ay deeqda guud tahay
+  // 1. Marka Grant la doorto
   useEffect(() => {
     if (form.grantId && grants && grants.length > 0) {
       const selectedGrant = grants.find((g) => String(g.id) === String(form.grantId));
@@ -55,38 +61,60 @@ export default function CreateProject({
     }
   }, [form.grantId, grants]);
 
-  // 2. 🧮 Dynamic Budget Calculation
+  // 2. Dynamic Budget Calculation
   useEffect(() => {
+    const grantCeiling = parseFloat(form.grantTotalAmount) || 0;
     const qty = parseFloat(form.quantity) || 0;
     const uPrice = parseFloat(form.unitPrice) || 0;
     const advance = parseFloat(form.advancePayment) || 0;
 
-    // Total Budget = Qty * Unit Price
     const calculatedTotalBudget = qty * uPrice;
-
-    // Net Budget = Total Budget - Advance Payment
-    const calculatedNetBudget = calculatedTotalBudget - advance;
+    const calculatedNetBudget = grantCeiling - calculatedTotalBudget - advance;
 
     setForm((prev) => ({
       ...prev,
       totalBudget: calculatedTotalBudget,
       netImplementationBudget: calculatedNetBudget,
     }));
-  }, [form.quantity, form.unitPrice, form.advancePayment]);
+  }, [form.quantity, form.unitPrice, form.advancePayment, form.grantTotalAmount]);
 
-  // LABADA DIGNIIN (VALIDATIONS)
+  // 🛠️ VALIDATIONS
+  const inputQty = Number(form.quantity) || 0;
+  const availableQty = Number(form.stockAvailableQty) || 0;
+
+  const isStockExceeded = form.stockItemId !== "" && inputQty > availableQty;
   const isBudgetExceeded = form.totalBudget > form.grantTotalAmount;
-  
   const advanceValue = parseFloat(form.advancePayment) || 0;
-  const isAdvanceExceeded = advanceValue > 0 && advanceValue >= form.totalBudget;
-
-  const isAdvanceDisabled = form.totalBudget === 0 || (form.totalBudget > 0 && (form.grantTotalAmount - form.totalBudget <= 0));
+  
+  const remainingBeforeAdvance = form.grantTotalAmount - form.totalBudget;
+  
+  // 🔥 Shardi: Advance payment ma noqon karto mid la siman ama ka badan miisaaniyadda harsan, si Net Impl mar walba u sarreeyo uuna u noqon eber ama minus.
+  const isAdvanceExceeded = advanceValue > 0 && advanceValue >= remainingBeforeAdvance;
+  const isAdvanceDisabled = form.totalBudget === 0 || remainingBeforeAdvance <= 0;
 
   // 3. Load ama Reset Form
   useEffect(() => {
     if (isOpen) {
       if (projectToEdit) {
-        setForm(projectToEdit);
+        const selectedItem = stockItems.find((item) => String(item.id) === String(projectToEdit.stockItemId));
+        let available = Infinity;
+        if (selectedItem) {
+          const rawQty = selectedItem.items && selectedItem.items.length > 0 
+            ? (selectedItem.items[0].quantity || selectedItem.items[0].qty || 0)
+            : (selectedItem.quantity || selectedItem.qty || 0);
+          available = Number(rawQty) || 0;
+        }
+
+        setForm({
+          ...projectToEdit,
+          grantId: projectToEdit.grantId ? String(projectToEdit.grantId) : "",
+          stockItemId: projectToEdit.stockItemId ? String(projectToEdit.stockItemId) : "",
+          stockItemName: projectToEdit.stockItemName || "",
+          stockAvailableQty: available,
+          quantity: projectToEdit.quantity || "",
+          unitPrice: projectToEdit.unitPrice || "",
+          advancePayment: projectToEdit.advancePayment || "",
+        });
       } else {
         const defaultGrantId = grants && grants.length > 0 ? String(grants[0].id) : "";
         const defaultGrant = grants && grants.length > 0 ? grants[0] : null;
@@ -96,11 +124,14 @@ export default function CreateProject({
           name: "",
           grantId: defaultGrantId,
           grantTotalAmount: defaultAmount,
+          stockItemId: "",
+          stockItemName: "",
+          stockAvailableQty: Infinity,
           quantity: "",
           unitPrice: "",
           totalBudget: 0,
           advancePayment: "",
-          netImplementationBudget: 0,
+          netImplementationBudget: defaultAmount,
           location: "",
           startDate: "",
           endDate: "",
@@ -109,57 +140,104 @@ export default function CreateProject({
         });
       }
     }
-  }, [projectToEdit, isOpen, grants]);
+  }, [projectToEdit, isOpen, grants, stockItems]);
+
+  const handleStockItemChange = (value) => {
+    const selectedItem = stockItems.find((item) => String(item.id) === String(value));
+    let name = "";
+    let available = Infinity;
+
+    if (selectedItem) {
+      const rawQty = selectedItem.items && selectedItem.items.length > 0
+        ? (selectedItem.items[0].quantity || selectedItem.items[0].qty || 0)
+        : (selectedItem.quantity || selectedItem.qty || 0);
+      
+      name = selectedItem.items && selectedItem.items.length > 0
+        ? (selectedItem.items[0].itemName || selectedItem.items[0].name || "")
+        : (selectedItem.itemName || selectedItem.name || "");
+        
+      available = Number(rawQty) || 0;
+    }
+
+    setForm((prev) => {
+      const currentInputQty = Number(prev.quantity) || 0;
+      return {
+        ...prev,
+        stockItemId: value,
+        stockItemName: name,
+        stockAvailableQty: available,
+        quantity: currentInputQty > available ? "" : prev.quantity
+      };
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    if (isStockExceeded) {
+      alert(`Error: Quantity-ga aad gelisay (${form.quantity}) wuxuu ka badan yahay inta alaabta ka taal stock-ka (${form.stockAvailableQty})!`);
+      return;
+    }
+
     if (isBudgetExceeded) {
       alert(`Error: Miisaaniyadda mashruucu ($${form.totalBudget}) waxay ka badantahay lacagta guud ee deeqda aad haysato ($${form.grantTotalAmount})!`);
       return;
     }
 
     if (isAdvanceExceeded) {
-      alert(`Error: Advance payment-ku lama mid noqon karo miisaaniyadda guud (Net budget-ku eber ma noqon karo)!`);
+      alert(`Error: Advance Payment-ku ma ka badnaan karo mana la sinnaan karo lacagta harsan si Net Implementation Budget u noqdo mid mar walba ka sarreeya eber!`);
       return;
     }
 
     const dataToSave = {
       ...form,
-      quantity: parseFloat(form.quantity) || 0,
-      unitPrice: parseFloat(form.unitPrice) || 0,
-      totalBudget: parseFloat(form.totalBudget) || 0,
-      advancePayment: isAdvanceDisabled ? 0 : (parseFloat(form.advancePayment) || 0),
-      netImplementationBudget: parseFloat(form.netImplementationBudget) || 0,
+      quantity: Number(form.quantity) || 0,
+      unitPrice: Number(form.unitPrice) || 0,
+      totalBudget: Number(form.totalBudget) || 0,
+      advancePayment: isAdvanceDisabled ? 0 : (Number(form.advancePayment) || 0),
+      netImplementationBudget: Number(form.netImplementationBudget) || 0,
+      stockAvailableQty: Number(form.stockAvailableQty) || 0
     };
 
-    if (projectToEdit?.id) {
-      await updateProject(projectToEdit.id, dataToSave);
-    } else {
-      await createProject(dataToSave);
+    try {
+      if (projectToEdit?.id) {
+        await updateProject(projectToEdit.id, dataToSave);
+      } else {
+        await createProject(dataToSave);
+      }
+      
+      // 🔥 REFRESH DYNAMIC: Halkan waxaan ku wacaynaa labada nidaam si xogtu u update-garowdo
+      if (refreshProjects) refreshProjects();
+      if (refreshStock) refreshStock(); // Kani wuxuu dropdown-ka ka dhigayaa mid la jaanqaada Firestore
+      
+      onClose();
+    } catch (error) {
+      console.error("Cillad ayaa dhacday sxb:", error);
+      alert(error.message || "Waxaa dhacay khalad inta la kaydinayay mashruuca.");
     }
-    onClose();
-    refreshProjects();
   };
 
-  const isSubmitDisabled = isBudgetExceeded || isAdvanceExceeded || !form.name || !form.quantity || !form.unitPrice || !form.grantId;
+  const isSubmitDisabled = isBudgetExceeded || isAdvanceExceeded || isStockExceeded || !form.name || !form.quantity || !form.unitPrice || !form.grantId || form.netImplementationBudget <= 0;
 
   return (
     <Dialog open={isOpen} onOpenChange={(val) => !val && onClose()}>
-      <DialogContent className="sm:max-w-[480px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-lg overflow-hidden max-h-auto shadow-xl">
-        <DialogHeader className="pb-2 border-b border-slate-100 dark:border-slate-800">
+      <DialogContent className="sm:max-w-[750px] w-[95%] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-lg max-h-[90vh] overflow-y-auto shadow-xl">
+        <DialogHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
           <DialogTitle className="text-[#1e3a8a] dark:text-blue-400 text-base font-bold uppercase tracking-wider">
             {projectToEdit ? "Edit Project Details" : "Launch New Project"}
           </DialogTitle>
+          <DialogDescription className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+            Fill in the details below to configure your project financial structure.
+          </DialogDescription>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-x-3 gap-y-2 pt-2">
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3 pt-3">
           
-          {/* 🌟 Professional Select Qeybta Grant-iga */}
-          <div className="col-span-2 space-y-1">
+          {/* Select Funding Grant */}
+          <div className="space-y-1">
             <label className="text-[11px] font-semibold text-slate-500 uppercase">Select Funding Grant</label>
             <Select 
-              value={form.grantId ? String(form.grantId) : undefined} 
+              value={form.grantId ? String(form.grantId) : ""} 
               onValueChange={(value) => setForm({ ...form, grantId: value })}
             >
               <SelectTrigger className="h-9 text-xs bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-600 font-medium">
@@ -171,23 +249,58 @@ export default function CreateProject({
               <SelectContent className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-xs">
                 {grants && grants.map((g) => (
                   <SelectItem key={g.id} value={String(g.id)} className="text-xs text-slate-900 dark:text-slate-100 cursor-pointer">
-                    {g.grantName || g.name}
+                    {g.grantName || g.name} (${Number(g.amount).toLocaleString()})
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
+          {/* Select Item from Stock */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-semibold text-slate-500 uppercase">Select Item from Stock</label>
+            <Select 
+              value={form.stockItemId ? String(form.stockItemId) : "none"} 
+              onValueChange={(value) => handleStockItemChange(value === "none" ? "" : value)}
+            >
+              <SelectTrigger className="h-9 text-xs bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-600 font-medium">
+                <div className="flex items-center gap-2">
+                  <Package size={14} className="text-slate-400" />
+                  <SelectValue placeholder="-- Select Item from Stock (Optional) --" />
+                </div>
+              </SelectTrigger>
+              <SelectContent className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-xs">
+                <SelectItem value="none" className="text-xs text-slate-400 dark:text-slate-500 cursor-pointer">-- No Stock Item (Optional) --</SelectItem>
+                {stockItems && stockItems.map((item) => {
+                  let displayFormName = "Unknown Item";
+                  let itemQty = 0;
+                  if (item.items && item.items.length > 0) {
+                    displayFormName = item.items[0].itemName || item.items[0].name || displayFormName;
+                    itemQty = item.items[0].quantity || item.items[0].qty || 0;
+                  } else {
+                    displayFormName = item.itemName || item.name || displayFormName;
+                    itemQty = item.quantity || item.qty || 0;
+                  }
+                  return (
+                    <SelectItem key={item.id} value={String(item.id)} className="text-xs text-slate-900 dark:text-slate-100 cursor-pointer">
+                      {displayFormName} (Available: {itemQty} - Wh: {item.warehouseName || "N/A"})
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Display Amount Ceiling */}
-          <div className="col-span-2 bg-blue-50/40 dark:bg-blue-950/10 border border-blue-100 dark:border-blue-900/30 p-2 rounded-md flex justify-between items-center text-[11px]">
+          <div className="md:col-span-2 bg-blue-50/40 dark:bg-blue-950/10 border border-blue-100 dark:border-blue-900/30 p-2.5 rounded-md flex justify-between items-center text-[11px]">
             <span className="font-semibold text-slate-500 dark:text-slate-400">Available Grant Ceiling:</span>
-            <span className="font-mono font-bold text-[#1e3a8a] dark:text-blue-400 bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-blue-100 dark:border-blue-900/50 shadow-sm">
+            <span className="font-mono font-bold text-[#1e3a8a] dark:text-blue-400 bg-white dark:bg-slate-900 px-2 py-0.5 rounded border border-blue-100 dark:border-blue-900/50 shadow-sm text-xs">
               ${Number(form.grantTotalAmount).toLocaleString()}
             </span>
           </div>
 
           {/* Project Name */}
-          <div className="col-span-2 space-y-0.5">
+          <div className="md:col-span-2 space-y-0.5">
             <label className="text-[11px] font-semibold text-slate-500 uppercase">Project Name</label>
             <Input
               placeholder="E.g., Borehole Drilling in Gedo"
@@ -200,11 +313,13 @@ export default function CreateProject({
 
           {/* Quantity */}
           <div className="space-y-0.5">
-            <label className="text-[11px] font-semibold text-slate-500 uppercase">Quantity</label>
+            <label className="text-[11px] font-semibold text-slate-500 uppercase">
+              Quantity {form.stockItemId && <span className="text-blue-600 font-bold dark:text-blue-400">(Max: {form.stockAvailableQty})</span>}
+            </label>
             <Input
               type="number"
               placeholder="E.g., 5"
-              className="h-9 text-xs bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-600"
+              className={`h-9 text-xs bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 ${isStockExceeded ? "border-red-500 dark:border-red-500 focus:ring-red-500 text-red-600" : "focus:ring-blue-600"}`}
               value={form.quantity}
               onChange={(e) => setForm({ ...form, quantity: e.target.value })}
               required
@@ -224,15 +339,27 @@ export default function CreateProject({
             />
           </div>
 
-          {/* Error Message Box (Miisaaniyada Guud haday ka badato) */}
+          {/* Errors */}
+          {isStockExceeded && (
+            <div className="md:col-span-2 text-center py-1.5 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded text-[11px] font-semibold text-red-600 dark:text-red-400">
+              Cariiri! Tirada aad rabto ({form.quantity}) waxay ka badan tahay inta alaabta ah ee stock-ka taal ({form.stockAvailableQty})!
+            </div>
+          )}
+
           {isBudgetExceeded && (
-            <div className="col-span-2 text-center py-1 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded text-[11px] font-semibold text-red-600 dark:text-red-400">
+            <div className="md:col-span-2 text-center py-1.5 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded text-[11px] font-semibold text-red-600 dark:text-red-400">
               Lacagta guud (${form.totalBudget}) waxay ka badantahay inta aad haysato (${form.grantTotalAmount})!
             </div>
           )}
 
+          {isAdvanceExceeded && (
+            <div className="md:col-span-2 text-center py-1.5 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded text-[11px] font-semibold text-red-600 dark:text-red-400">
+              Cariiri! Advance Payment-ku ma noqon karo mid la siman ama ka badan lacagta harsan, waa in Net Impl mar walba ka sarreeyo eber!
+            </div>
+          )}
+
           {/* Advance Payment */}
-          <div className="col-span-2 space-y-0.5">
+          <div className="md:col-span-2 space-y-0.5">
             <label className="text-[11px] font-semibold text-slate-500 uppercase">
               Advance Payment ($) {isAdvanceDisabled && <span className="text-red-500 font-normal lowercase">(locked)</span>}
             </label>
@@ -246,28 +373,21 @@ export default function CreateProject({
             />
           </div>
 
-          {/* Error Message Box */}
-          {isAdvanceExceeded && (
-            <div className="col-span-2 text-center py-1 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded text-[11px] font-semibold text-red-600 dark:text-red-400">
-              Cisabtu ma qadeyso! Hormarisku (${form.advancePayment}) lama mid noqon karo miisaaniyadda mashruuca (${form.totalBudget}). Net-ku eber ma noqon karo!
-            </div>
-          )}
-
-          {/* 🧮 FINANCIAL SUMMARY BOX */}
-          <div className="col-span-2 grid grid-cols-3 gap-2 bg-slate-50 dark:bg-slate-800/40 p-2 rounded-lg border border-slate-100 dark:border-slate-800/60 my-0.5">
-            <div className="text-center p-1 bg-white dark:bg-slate-900 rounded border border-slate-100 dark:border-slate-800">
+          {/* Summary Box */}
+          <div className="md:col-span-2 grid grid-cols-3 gap-2 bg-slate-50 dark:bg-slate-800/40 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800/60 my-1">
+            <div className="text-center p-1.5 bg-white dark:bg-slate-900 rounded border border-slate-100 dark:border-slate-800">
               <span className="text-[9px] font-bold text-slate-400 uppercase block">Total Budget</span>
               <span className={`text-xs font-mono font-bold block ${isBudgetExceeded ? "text-red-600" : "text-slate-800 dark:text-slate-100"}`}>
                 ${Number(form.totalBudget).toLocaleString()}
               </span>
             </div>
-            <div className="text-center p-1 bg-white dark:bg-slate-900 rounded border border-slate-100 dark:border-slate-800">
+            <div className="text-center p-1.5 bg-white dark:bg-slate-900 rounded border border-slate-100 dark:border-slate-800">
               <span className="text-[9px] font-bold text-slate-400 uppercase block">Advance</span>
               <span className={`text-xs font-mono font-bold block ${isAdvanceExceeded ? "text-red-600 font-extrabold" : "text-red-500"}`}>
                 -${(parseFloat(form.advancePayment) || 0).toLocaleString()}
               </span>
             </div>
-            <div className="text-center p-1 bg-white dark:bg-slate-900 rounded border border-slate-100 dark:border-slate-800">
+            <div className="text-center p-1.5 bg-white dark:bg-slate-900 rounded border border-slate-100 dark:border-slate-800">
               <span className="text-[9px] font-bold text-slate-400 uppercase block">Net Impl. Budget</span>
               <span className={`text-xs font-mono font-bold block ${isSubmitDisabled ? "text-red-600 font-extrabold" : form.netImplementationBudget > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-700"}`}>
                 ${Number(form.netImplementationBudget).toLocaleString()}
@@ -276,7 +396,7 @@ export default function CreateProject({
           </div>
 
           {/* Location */}
-          <div className="col-span-2 space-y-0.5">
+          <div className="md:col-span-2 space-y-0.5">
             <label className="text-[11px] font-semibold text-slate-500 uppercase">Location</label>
             <Input
               placeholder="E.g., Mogadishu, Kismayo"
@@ -287,7 +407,7 @@ export default function CreateProject({
             />
           </div>
 
-          {/* Start Date */}
+          {/* Dates */}
           <div className="space-y-0.5">
             <label className="text-[11px] font-semibold text-slate-500 uppercase">Start Date</label>
             <Input
@@ -299,7 +419,6 @@ export default function CreateProject({
             />
           </div>
 
-          {/* End Date */}
           <div className="space-y-0.5">
             <label className="text-[11px] font-semibold text-slate-500 uppercase">End Date</label>
             <Input
@@ -311,8 +430,8 @@ export default function CreateProject({
             />
           </div>
 
-          {/* 🌟 Professional Select Qeybta Project Status */}
-          <div className="col-span-2 space-y-1">
+          {/* Status */}
+          <div className="md:col-span-2 space-y-1">
             <label className="text-[11px] font-semibold text-slate-500 uppercase">Project Status</label>
             <Select 
               value={form.status} 
@@ -329,8 +448,8 @@ export default function CreateProject({
             </Select>
           </div>
 
-          {/* Action Buttons */}
-          <div className="col-span-2 flex justify-end gap-2 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+          {/* Buttons */}
+          <div className="md:col-span-2 flex justify-end gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
             <Button type="button" variant="outline" onClick={onClose} className="h-8 text-xs border-slate-200 dark:border-slate-700">Cancel</Button>
             <Button 
               type="submit" 
