@@ -1,18 +1,21 @@
 import { useState, useMemo, useEffect } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Globe } from "lucide-react";
+import { Search, Globe, Building2, Landmark, Phone, Mail } from "lucide-react";
 
+// Country List logic
 const getCountryList = () => {
   const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
-  const isoCodes = ["TR", "SO", "AF", "AX", "AL", "DZ", "AS", "AD", "AO", "AI", "AQ", "AG", "AR", "AM", "AW", "AU", "AT", "AZ", "BS", "BH", "BD", "BB", "BY", "BE", "BZ", "BJ", "BM", "BT", "BO", "BQ", "BA", "BW", "BV", "BR", "IO", "BN", "BG", "BF", "BI", "CV", "KH", "CM", "CA", "KY", "CF", "TD", "CL", "CN", "CX", "CC", "CO", "KM", "CD", "CG", "CK", "CR", "CI", "HR", "CU", "CW", "CY", "CZ", "DK", "DJ", "DM", "DO", "EC", "EG", "SV", "GQ", "ER", "EE", "SZ", "ET", "FK", "FO", "FJ", "FI", "FR", "GF", "PF", "TF", "GA", "GM", "GE", "DE", "GH", "GI", "GR", "GL", "GD", "GP", "GU", "GT", "GG", "GN", "GW", "GY", "HT", "HM", "VA", "HN", "HK", "HU", "IS", "IN", "ID", "IR", "IQ", "IE", "IM", "IL", "IT", "JM", "JP", "JE", "JO", "KZ", "KE", "KI", "KP", "KR", "KW", "KG", "LA", "LV", "LB", "LS", "LR", "LY", "LI", "LT", "LU", "MO", "MG", "MW", "MY", "MV", "ML", "MT", "MH", "MQ", "MR", "MU", "YT", "MX", "FM", "MD", "MC", "MN", "ME", "MS", "MA", "MZ", "MM", "NA", "NR", "NP", "NL", "NC", "NZ", "NI", "NE", "NG", "NU", "NF", "MP", "NO", "OM", "PK", "PW", "PS", "PA", "PG", "PY", "PE", "PH", "PN", "PL", "PT", "PR", "QA", "RE", "RO", "RU", "RW", "BL", "SH", "KN", "LC", "MF", "PM", "VC", "WS", "SM", "ST", "SA", "SN", "RS", "SC", "SL", "SG", "SX", "SK", "SI", "SB", "SS", "ES", "LK", "SD", "SR", "SJ", "SE", "CH", "SY", "TW", "TJ", "TZ", "TH", "TL", "TG", "TK", "TO", "TT", "TN", "UA", "AE", "GB", "US", "UM", "UY", "UZ", "VU", "VE", "VN", "VG", "VI", "WF", "EH", "YE", "ZM", "ZW"];
-
+  // Liis balaaran oo wadamada aduunka ah
+  const isoCodes = [
+    "SO", "TR", "DJ", "ET", "KE", "AE", "SA", "QA", "KW", "OM", "YE", 
+    "GB", "US", "CA", "DE", "FR", "IT", "ES", "NL", "BE", "SE", "CH",
+    "CN", "IN", "PK", "MY", "ID", "SG", "JP", "KR", "AU", "NZ",
+    "EG", "DZ", "MA", "TN", "LY", "SD", "NG", "GH", "UG", "TZ", "RW",
+    "AF", "AL", "AO", "AR", "AT", "AZ", "BA", "BD", "BG", "BH", "BR"
+  ];
+  
   return isoCodes.map(code => ({
     code,
     name: regionNames.of(code),
@@ -25,35 +28,25 @@ export const ALL_COUNTRIES = getCountryList();
 export default function CreateDonor({ isOpen, onClose, refreshDonors, donorToEdit, createDonor, updateDonor }) {
   const [countrySearch, setCountrySearch] = useState("");
   const [form, setForm] = useState({
-    donorName: "",
-    contactPerson: "",
-    phone: "",
-    email: "",
-    country: "Turkey",
-    notes: "",
+    donorName: "", contactPerson: "", phone: "", email: "", 
+    country: "Somalia", taxId: "", preferredCurrency: "USD", notes: ""
   });
 
   useEffect(() => {
     if (donorToEdit) {
       setForm(donorToEdit);
     } else {
-      setForm({ donorName: "", contactPerson: "", phone: "", email: "", country: "Turkey", notes: "" });
+      setForm({ donorName: "", contactPerson: "", phone: "", email: "", country: "Somalia", taxId: "", preferredCurrency: "USD", notes: "" });
     }
   }, [donorToEdit, isOpen]);
 
   const filteredCountries = useMemo(() => {
-    return ALL_COUNTRIES.filter(c => 
-      c.name.toLowerCase().includes(countrySearch.toLowerCase())
-    );
+    return ALL_COUNTRIES.filter(c => c.name.toLowerCase().includes(countrySearch.toLowerCase()));
   }, [countrySearch]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (donorToEdit?.id) {
-      await updateDonor(donorToEdit.id, form);
-    } else {
-      await createDonor(form);
-    }
+    donorToEdit?.id ? await updateDonor(donorToEdit.id, form) : await createDonor(form);
     handleClose();
     refreshDonors();
   };
@@ -65,74 +58,62 @@ export default function CreateDonor({ isOpen, onClose, refreshDonors, donorToEdi
 
   return (
     <Dialog open={isOpen} onOpenChange={(val) => !val && handleClose()}>
-      <DialogContent className="sm:max-w-[500px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-lg">
+      <DialogContent className="sm:max-w-[550px] bg-white dark:bg-slate-900 border-slate-200 p-6">
         <DialogHeader>
-          <DialogTitle className="text-[#1e3a8a] dark:text-blue-400 text-lg font-bold uppercase tracking-wider">
-            {donorToEdit ? "Edit Partner Profile" : "Register New Donor"}
+          <DialogTitle className="text-[#1e3a8a] text-lg font-bold uppercase tracking-wider flex items-center gap-2">
+            <Building2 size={20} /> {donorToEdit ? "Edit Partner Profile" : "Register New Donor"}
           </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4 pt-4">
-          <Input
-            placeholder="Organization Name"
-            className="col-span-2 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-600 outline-none"
-            value={form.donorName}
-            onChange={(e) => setForm({ ...form, donorName: e.target.value })}
-            required
-          />
-          <Input
-            placeholder="Contact Person"
-            className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-600 outline-none"
-            value={form.contactPerson}
-            onChange={(e) => setForm({ ...form, contactPerson: e.target.value })}
-          />
-          <div className="space-y-1">
+
+        <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+          <Input placeholder="Organization Name (Required)" value={form.donorName} onChange={(e) => setForm({ ...form, donorName: e.target.value })} required />
+          
+          <div className="grid grid-cols-2 gap-4">
             <div className="relative">
-              <select
-                className="flex h-10 w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-600 outline-none appearance-none text-slate-900 dark:text-slate-100"
-                value={form.country}
-                onChange={(e) => setForm({ ...form, country: e.target.value })}
-              >
-                {filteredCountries.map((c) => (
-                  <option key={c.code} value={c.name} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
-                    {c.flag} {c.name}
-                  </option>
-                ))}
-              </select>
-              <Globe className="absolute right-3 top-2.5 text-slate-400 pointer-events-none" size={16} />
+              <Landmark className="absolute left-3 top-3 text-slate-400" size={16} />
+              <Input placeholder="Tax ID / Reg No." className="pl-9" value={form.taxId} onChange={(e) => setForm({ ...form, taxId: e.target.value })} />
             </div>
-            <div className="relative">
-              <Search className="absolute left-2 top-2.5 text-slate-400" size={12} />
-              <input
-                type="text"
-                placeholder="Search country..."
-                className="w-full text-[10px] pl-6 pr-2 py-1.5 border border-slate-200 dark:border-slate-700 rounded bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:bg-white dark:focus:bg-slate-900"
-                value={countrySearch}
-                onChange={(e) => setCountrySearch(e.target.value)}
-              />
+            <select className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm bg-white" value={form.preferredCurrency} onChange={(e) => setForm({ ...form, preferredCurrency: e.target.value })}>
+              <option value="USD">USD ($)</option>
+              <option value="EUR">EUR (€)</option>
+              <option value="GBP">GBP (£)</option>
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Input placeholder="Contact Person" value={form.contactPerson} onChange={(e) => setForm({ ...form, contactPerson: e.target.value })} />
+            
+            {/* SEARCHABLE COUNTRY DROPDOWN */}
+            <div className="space-y-1">
+              <div className="relative">
+                <select className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm bg-white" value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })}>
+                  {filteredCountries.map(c => <option key={c.code} value={c.name}>{c.flag} {c.name}</option>)}
+                </select>
+                <Globe className="absolute right-3 top-3 text-slate-400 pointer-events-none" size={16} />
+              </div>
+              <div className="relative">
+                <Search className="absolute left-2 top-2 text-slate-400" size={12} />
+                <input type="text" placeholder="Search country..." className="w-full h-8 pl-7 pr-2 border border-slate-200 rounded-md text-[11px] bg-slate-50 focus:outline-none" value={countrySearch} onChange={(e) => setCountrySearch(e.target.value)} />
+              </div>
             </div>
           </div>
-          <Input
-            placeholder="Phone Number"
-            className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-600 outline-none"
-            value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })}
-          />
-          <Input
-            placeholder="Email Address"
-            className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-600 outline-none"
-            type="email"
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-          />
-          <Input
-            placeholder="Notes / Reference"
-            className="col-span-2 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-600 outline-none"
-            value={form.notes}
-            onChange={(e) => setForm({ ...form, notes: e.target.value })}
-          />
-          <div className="col-span-2 flex justify-end gap-3 mt-4">
-            <Button type="button" variant="outline" onClick={handleClose} className="border-slate-200 dark:border-slate-700">Cancel</Button>
-            <Button type="submit" className="bg-[#1e3a8a] dark:bg-blue-600 hover:bg-[#172554] dark:hover:bg-blue-700 text-white shadow-md border-none transition-all">
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="relative">
+              <Phone className="absolute left-3 top-3 text-slate-400" size={16} />
+              <Input placeholder="Phone" className="pl-9" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            </div>
+            <div className="relative">
+              <Mail className="absolute left-3 top-3 text-slate-400" size={16} />
+              <Input placeholder="Email" className="pl-9" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            </div>
+          </div>
+
+          <Input placeholder="Notes / Reference" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+
+          <div className="flex justify-end gap-3 mt-4">
+            <Button type="button" variant="outline" onClick={handleClose}>Cancel</Button>
+            <Button type="submit" className="bg-[#1e3a8a] text-white hover:bg-[#172554]">
               {donorToEdit ? "Update Profile" : "Save Partner"}
             </Button>
           </div>
