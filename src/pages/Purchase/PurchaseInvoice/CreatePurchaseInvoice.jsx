@@ -10,7 +10,7 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select";
-import { Loader2, FileText, Calendar, Layers, ArrowRight, Package } from "lucide-react";
+import { Loader2, FileText, Package } from "lucide-react";
 import { toast } from "sonner";
 import { db } from "@/lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
@@ -23,27 +23,22 @@ export default function CreatePurchaseInvoice({ isOpen, onClose, refreshPIs, piT
 
   // DB Collections Local States
   const [suppliers, setSuppliers] = useState([]);
-  const [programs, setPrograms] = useState([]);
 
   // Form States
   const [selectedPoId, setSelectedPoId] = useState("");
   const [supplierId, setSupplierId] = useState(""); // UI-ka waa laga qariyaa, gadaal ayuu ka buuxsamayaa
-  const [programId, setProgramId] = useState("");   // Gacanta ayaa laga dooran karaa
   const [dueDate, setDueDate] = useState("");
   const [totalAmount, setTotalAmount] = useState(0);
   const [poItems, setPoItems] = useState([]); 
 
-  // Soo dhuuq Suppliers iyo Programs
+  // Soo dhuuq Suppliers oo kaliya (Program waa laga saaray)
   useEffect(() => {
     const fetchDropdownData = async () => {
       try {
         const supSnap = await getDocs(collection(db, "suppliers"));
-        const progSnap = await getDocs(collection(db, "programs"));
-        
         setSuppliers(supSnap.docs.map(doc => ({ id: doc.id, name: doc.data().company || doc.data().supplierName || "N/A" })));
-        setPrograms(progSnap.docs.map(doc => ({ id: doc.id, name: doc.data().programName || "N/A" })));
       } catch (err) {
-        console.error("Error fetching dropdowns:", err);
+        console.error("Error fetching suppliers:", err);
       }
     };
     if (isOpen) fetchDropdownData();
@@ -58,11 +53,6 @@ export default function CreatePurchaseInvoice({ isOpen, onClose, refreshPIs, piT
         setTotalAmount(matchedPo.totalAmount || 0);
         setPoItems(matchedPo.items || []); 
         
-        // Haddii PO-da ay wadatay Program horay loo sii cayimay, isna waa la dooranayaa, laakiin isaga waa la beddeli karaa
-        if (matchedPo.programId) {
-          setProgramId(matchedPo.programId);
-        }
-        
         toast.success(`Xogtii PO ${matchedPo.poNumber} waa la soo raray.`);
       }
     }
@@ -74,14 +64,12 @@ export default function CreatePurchaseInvoice({ isOpen, onClose, refreshPIs, piT
       if (piToEdit) {
         setSelectedPoId(piToEdit.poId || "");
         setSupplierId(piToEdit.supplierId || "");
-        setProgramId(piToEdit.programId || "");
         setDueDate(piToEdit.dueDate ? piToEdit.dueDate.split("T")[0] : "");
         setTotalAmount(piToEdit.totalAmount || 0);
         setPoItems(piToEdit.items || []); 
       } else {
         setSelectedPoId("");
         setSupplierId("");
-        setProgramId("");
         setDueDate("");
         setTotalAmount(0);
         setPoItems([]);
@@ -91,23 +79,21 @@ export default function CreatePurchaseInvoice({ isOpen, onClose, refreshPIs, piT
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedPoId || !supplierId || !programId || !dueDate) {
-      toast.error("Fadlan buuxi dhammaan xogta muhiimka ah (PO, Program & Due Date).");
+    // Shardiga Validation-ka waa laga saaray Program
+    if (!selectedPoId || !supplierId || !dueDate) {
+      toast.error("Fadlan buuxi dhammaan xogta muhiimka ah (PO & Due Date).");
       return;
     }
 
     setIsSubmitting(true);
     const matchedPoObj = purchaseOrders.find(po => po.id === selectedPoId);
     const matchedSupplier = suppliers.find(s => s.id === supplierId);
-    const matchedProgram = programs.find(p => p.id === programId);
     
     const invoiceData = {
       poId: selectedPoId,
       poNumber: matchedPoObj ? matchedPoObj.poNumber : (piToEdit ? piToEdit.poNumber : "N/A"),
       supplierId,
       supplierName: matchedSupplier ? matchedSupplier.name : (piToEdit ? piToEdit.supplierName : "N/A"),
-      programId,
-      program: matchedProgram ? matchedProgram.name : "N/A",
       dueDate,
       totalAmount,
       status: piToEdit ? piToEdit.status : "UNPAID",
@@ -186,23 +172,6 @@ export default function CreatePurchaseInvoice({ isOpen, onClose, refreshPIs, piT
               </span>
             </div>
           )}
-
-          {/* PROGRAM */}
-          <div className="flex flex-col gap-0.5">
-            <Label className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1">
-              Program / Project
-            </Label>
-            <Select value={programId} onValueChange={setProgramId}>
-              <SelectTrigger className="w-full bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-xs h-8 shadow-none focus:ring-0">
-                <SelectValue placeholder="Select Program" />
-              </SelectTrigger>
-              <SelectContent className="bg-white dark:bg-slate-900">
-                {programs.map(p => (
-                  <SelectItem key={p.id} value={p.id} className="text-xs">{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
 
           {/* DUE DATE */}
           <div className="flex flex-col gap-0.5">
