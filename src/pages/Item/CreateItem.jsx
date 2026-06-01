@@ -9,7 +9,7 @@ import { createItem } from "@/services/items/itemService";
 export default function CreateItem({ refreshItems }) {
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({ itemName: "", description: "" });
-  const [loading, setLoading] = useState(false); // Waxaan ku daray loading state
+  const [loading, setLoading] = useState(false); 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -17,13 +17,17 @@ export default function CreateItem({ refreshItems }) {
     
     setLoading(true);
     try {
+      // 🌟 XAL: Haddii service-kaaga uu ogol yahay, waxaad halkan ku baasi kartaa ID auto-generated ah
+      // Ama haddii service-ka uu yahay midka Firestore si toos ah u abuuraya, hubi XALKA 1-aad ee sare.
       await createItem({ 
         itemName: formData.itemName, 
-        description: formData.description || "No description provided" 
+        description: formData.description || "No description provided",
+        createdAt: new Date()
       });
+      
       setFormData({ itemName: "", description: "" });
       setOpen(false);
-      refreshItems();
+      refreshItems(); 
     } catch (error) {
       console.error("Error saving item:", error);
     } finally {
@@ -67,7 +71,6 @@ export default function CreateItem({ refreshItems }) {
             />
           </div>
 
-          {/* DialogFooter waxay si toos ah u habaysaa badhamada */}
           <DialogFooter className="gap-2 sm:gap-0 pt-4">
             <Button 
               type="button" 

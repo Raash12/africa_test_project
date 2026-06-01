@@ -10,7 +10,7 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select";
-import { Loader2, FileText, Package } from "lucide-react";
+import { Loader2, FileText, Calendar, Layers, ArrowRight, Package } from "lucide-react";
 import { toast } from "sonner";
 import { db } from "@/lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
@@ -27,8 +27,8 @@ export default function CreatePurchaseInvoice({ isOpen, onClose, refreshPIs, piT
 
   // Form States
   const [selectedPoId, setSelectedPoId] = useState("");
-  const [supplierId, setSupplierId] = useState("");
-  const [programId, setProgramId] = useState("");
+  const [supplierId, setSupplierId] = useState(""); // UI-ka waa laga qariyaa, gadaal ayuu ka buuxsamayaa
+  const [programId, setProgramId] = useState("");   // Gacanta ayaa laga dooran karaa
   const [dueDate, setDueDate] = useState("");
   const [totalAmount, setTotalAmount] = useState(0);
   const [poItems, setPoItems] = useState([]); 
@@ -49,43 +49,50 @@ export default function CreatePurchaseInvoice({ isOpen, onClose, refreshPIs, piT
     if (isOpen) fetchDropdownData();
   }, [isOpen]);
 
-  // Marka PO la doorto (Auto-fill)
+  // Marka PO la doorto (Supplier-ka iyo lacagta auto-fill ayay noqonayaan)
   useEffect(() => {
     if (selectedPoId && !piToEdit) {
       const matchedPo = purchaseOrders.find(po => po.id === selectedPoId);
       if (matchedPo) {
         setSupplierId(matchedPo.supplierId || "");
-        setProgramId(matchedPo.programId || "");
         setTotalAmount(matchedPo.totalAmount || 0);
         setPoItems(matchedPo.items || []); 
-        toast.info(`Xogtii PO ${matchedPo.poNumber} iyo ${matchedPo.items?.length || 0} alaab ah waa la soo raray!`);
+        
+        // Haddii PO-da ay wadatay Program horay loo sii cayimay, isna waa la dooranayaa, laakiin isaga waa la beddeli karaa
+        if (matchedPo.programId) {
+          setProgramId(matchedPo.programId);
+        }
+        
+        toast.success(`Xogtii PO ${matchedPo.poNumber} waa la soo raray.`);
       }
     }
   }, [selectedPoId, purchaseOrders, piToEdit]);
 
   // Edit Mode mise New Mode
   useEffect(() => {
-    if (piToEdit) {
-      setSelectedPoId(piToEdit.poId || "");
-      setSupplierId(piToEdit.supplierId || "");
-      setProgramId(piToEdit.programId || "");
-      setDueDate(piToEdit.dueDate ? piToEdit.dueDate.split("T")[0] : "");
-      setTotalAmount(piToEdit.totalAmount || 0);
-      setPoItems(piToEdit.items || []); 
-    } else {
-      setSelectedPoId("");
-      setSupplierId("");
-      setProgramId("");
-      setDueDate("");
-      setTotalAmount(0);
-      setPoItems([]);
+    if (isOpen) {
+      if (piToEdit) {
+        setSelectedPoId(piToEdit.poId || "");
+        setSupplierId(piToEdit.supplierId || "");
+        setProgramId(piToEdit.programId || "");
+        setDueDate(piToEdit.dueDate ? piToEdit.dueDate.split("T")[0] : "");
+        setTotalAmount(piToEdit.totalAmount || 0);
+        setPoItems(piToEdit.items || []); 
+      } else {
+        setSelectedPoId("");
+        setSupplierId("");
+        setProgramId("");
+        setDueDate("");
+        setTotalAmount(0);
+        setPoItems([]);
+      }
     }
   }, [piToEdit, isOpen]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedPoId || !supplierId || !programId || !dueDate) {
-      toast.error("Fadlan buuxi dhammaan xogta muhiimka ah.");
+      toast.error("Fadlan buuxi dhammaan xogta muhiimka ah (PO, Program & Due Date).");
       return;
     }
 
@@ -96,15 +103,15 @@ export default function CreatePurchaseInvoice({ isOpen, onClose, refreshPIs, piT
     
     const invoiceData = {
       poId: selectedPoId,
-      poNumber: matchedPoObj ? matchedPoObj.poNumber : null,
+      poNumber: matchedPoObj ? matchedPoObj.poNumber : (piToEdit ? piToEdit.poNumber : "N/A"),
       supplierId,
-      supplierName: matchedSupplier ? matchedSupplier.name : "N/A",
+      supplierName: matchedSupplier ? matchedSupplier.name : (piToEdit ? piToEdit.supplierName : "N/A"),
       programId,
       program: matchedProgram ? matchedProgram.name : "N/A",
       dueDate,
       totalAmount,
       status: piToEdit ? piToEdit.status : "UNPAID",
-      items: poItems // 🌟 Alaabta halkan ayay ku keydsantahay sxb
+      items: poItems 
     };
 
     try {
@@ -113,7 +120,7 @@ export default function CreatePurchaseInvoice({ isOpen, onClose, refreshPIs, piT
         toast.success("Invoice-ka waa la cusboonaysiiyey!");
       } else {
         await createPurchaseInvoice(invoiceData);
-        toast.success("Invoice cusub iyo agabkiisii waa la keydiyey!");
+        toast.success("Invoice-ka waa la keydiyey!");
       }
       if (refreshPIs) await refreshPIs();
       onClose();
@@ -124,6 +131,9 @@ export default function CreatePurchaseInvoice({ isOpen, onClose, refreshPIs, piT
       setIsSubmitting(false);
     }
   };
+
+  // Raadi magaca supplier-ka hadda daahsoon si loo tuso isticmaalaha qaab akhris oo keliya ah
+  const currentSupplierName = suppliers.find(s => s.id === supplierId)?.name;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -143,40 +153,46 @@ export default function CreatePurchaseInvoice({ isOpen, onClose, refreshPIs, piT
           
           {/* LINK PO */}
           <div className="flex flex-col gap-0.5">
-            <Label className="text-[10px] font-bold uppercase text-slate-500">Link Purchase Order (PO)</Label>
+            <Label className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1">
+              Link Purchase Order (PO)
+            </Label>
             <Select value={selectedPoId} onValueChange={setSelectedPoId} disabled={!!piToEdit}>
               <SelectTrigger className="w-full bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-xs h-8 shadow-none focus:ring-0">
                 <SelectValue placeholder="Select PO" />
               </SelectTrigger>
               <SelectContent className="bg-white dark:bg-slate-900">
-                {purchaseOrders.filter(po => po.status === "APPROVED").map(po => (
-                  <SelectItem key={po.id} value={po.id} className="text-xs">
-                    {po.poNumber} - ${po.totalAmount?.toLocaleString()}
+                {piToEdit && (
+                  <SelectItem value={piToEdit.poId} className="text-xs">
+                    {piToEdit.poNumber || "Current PO"} - ${piToEdit.totalAmount?.toLocaleString()}
                   </SelectItem>
+                )}
+                {purchaseOrders
+                  .filter(po => po.status === "APPROVED" && po.id !== piToEdit?.poId)
+                  .map(po => (
+                    <SelectItem key={po.id} value={po.id} className="text-xs">
+                      {po.poNumber} - ${po.totalAmount?.toLocaleString()}
+                    </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          {/* SUPPLIER */}
-          <div className="flex flex-col gap-0.5">
-            <Label className="text-[10px] font-bold uppercase text-slate-500">Supplier / Vendor</Label>
-            <Select value={supplierId} onValueChange={setSupplierId} disabled={!!selectedPoId}>
-              <SelectTrigger className="w-full bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-xs h-8 shadow-none focus:ring-0">
-                <SelectValue placeholder="Select Supplier" />
-              </SelectTrigger>
-              <SelectContent className="bg-white dark:bg-slate-900">
-                {suppliers.map(s => (
-                  <SelectItem key={s.id} value={s.id} className="text-xs">{s.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* HIDDEN / READ-ONLY SUPPLIER INFO */}
+          {supplierId && (
+            <div className="bg-slate-50 dark:bg-slate-950/40 border border-dashed border-slate-200 dark:border-slate-800 rounded p-2 flex flex-col gap-0.5 transition-all">
+              <span className="text-[9px] font-bold text-slate-400 uppercase">Linked Vendor (Auto-Fetched)</span>
+              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                {currentSupplierName || "Loading vendor details..."}
+              </span>
+            </div>
+          )}
 
           {/* PROGRAM */}
           <div className="flex flex-col gap-0.5">
-            <Label className="text-[10px] font-bold uppercase text-slate-500">Program / Project</Label>
-            <Select value={programId} onValueChange={setProgramId} disabled={!!selectedPoId}>
+            <Label className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1">
+              Program / Project
+            </Label>
+            <Select value={programId} onValueChange={setProgramId}>
               <SelectTrigger className="w-full bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-xs h-8 shadow-none focus:ring-0">
                 <SelectValue placeholder="Select Program" />
               </SelectTrigger>
@@ -190,8 +206,16 @@ export default function CreatePurchaseInvoice({ isOpen, onClose, refreshPIs, piT
 
           {/* DUE DATE */}
           <div className="flex flex-col gap-0.5">
-            <Label className="text-[10px] font-bold uppercase text-slate-500">Due Date</Label>
-            <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-xs h-8 shadow-none focus:ring-0" required />
+            <Label className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1">
+              Due Date
+            </Label>
+            <Input 
+              type="date" 
+              value={dueDate} 
+              onChange={(e) => setDueDate(e.target.value)} 
+              className="bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-xs h-8 shadow-none focus:ring-0" 
+              required 
+            />
           </div>
 
           {/* SUMMARY BOX */}
@@ -204,15 +228,25 @@ export default function CreatePurchaseInvoice({ isOpen, onClose, refreshPIs, piT
           {/* TOTAL AMOUNT */}
           <div className="mt-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-2 flex justify-between items-center">
             <span className="text-[10px] font-bold text-slate-500 uppercase">Grand Total Amount:</span>
-            <span className="text-sm font-mono font-black text-blue-600">${totalAmount.toLocaleString()}</span>
+            <span className="text-sm font-mono font-black text-blue-600 dark:text-blue-400">${totalAmount.toLocaleString()}</span>
           </div>
 
+          {/* FOOTER ACTIONS */}
           <DialogFooter className="gap-1.5 border-t pt-2 mt-1 flex flex-row justify-end w-full">
-            <Button type="button" onClick={onClose} disabled={isSubmitting} className="text-xs h-8 px-3 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-none">
+            <Button 
+              type="button" 
+              onClick={onClose} 
+              disabled={isSubmitting} 
+              className="text-xs h-8 px-3 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-none"
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting} className="text-xs h-8 px-3 bg-[#1e3a8a] dark:bg-blue-600 text-white border-none cursor-pointer">
-              {isSubmitting && <Loader2 size={11} className="animate-spin mr-1" />} Save
+            <Button 
+              type="submit" 
+              disabled={isSubmitting} 
+              className="text-xs h-8 px-3 bg-[#1e3a8a] dark:bg-blue-600 text-white border-none cursor-pointer flex items-center gap-1"
+            >
+              {isSubmitting && <Loader2 size={11} className="animate-spin" />} Save
             </Button>
           </DialogFooter>
         </form>

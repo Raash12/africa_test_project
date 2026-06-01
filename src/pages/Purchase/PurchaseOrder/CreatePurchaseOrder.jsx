@@ -1,308 +1,296 @@
-import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import React, { useState, useEffect } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select"; 
-import { Plus, Trash2, ShoppingCart, Layers, UserCircle, Package, Landmark } from "lucide-react";
-import useSuppliers from "@/hooks/useSuppliers";
-import usePrograms from "@/hooks/usePrograms"; 
-import useItems from "@/hooks/useItems"; 
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, FileText, Package } from "lucide-react";
+import { toast } from "sonner";
+import { db } from "@/lib/firebase";
+import { collection, getDocs } from "firebase/firestore";
+import { createPurchaseOrder, updatePurchaseOrder } from "@/services/purchase/purchaseOrderService";
 
-// Tusaale ahaan Account Categories-ka u raran dhanka Accounting-ka
-const ACCOUNT_CATEGORIES = [
-  { id: "exp_project_direct", name: "Direct Project Expense" },
-  { id: "exp_office_supplies", name: "Office & Administrative Supplies" },
-  { id: "exp_equipment", name: "Equipment Purchase" },
-  { id: "exp_logistics", name: "Logistics & Transport" }
-];
+/**
+ * COMPONENT: CreatePurchaseOrder
+ * PURPOSE: Generating purchase orders, managing grant budgets, and tracking items.
+ */
+export default function CreatePurchaseOrder({ isOpen, onClose, refreshPOs, poToEdit }) {
+  
+  // ==========================================================================
+  // 1. STATE DEFINITIONS
+  // ==========================================================================
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Data Collections from Firebase
+  const [suppliers, setSuppliers] = useState([]);
+  const [grants, setGrants] = useState([]);
+  const [itemsMaster, setItemsMaster] = useState([]);
+  const [warehouses, setWarehouses] = useState([]);
+  
+  // Form Input States
+  const [supplierId, setSupplierId] = useState("");
+  const [grantId, setGrantId] = useState("");
+  const [accountCategory, setAccountCategory] = useState("");
+  const [warehouseId, setWarehouseId] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [totalAmount, setTotalAmount] = useState(0);
+  const [poItems, setPoItems] = useState([]);
+  
+  // Financial Constraints
+  const [selectedGrantObj, setSelectedGrantObj] = useState(null);
+  const [budgetExceeded, setBudgetExceeded] = useState(false);
+  const [remainingBudget, setRemainingBudget] = useState(0);
 
-export default function CreatePurchaseOrder({ isOpen, onClose, refreshPOs, poToEdit, createPurchaseOrder, updatePurchaseOrder }) {
-  const { suppliers = [], loading: loadingSuppliers } = useSuppliers();
-  const { programs = [], loading: loadingPrograms } = usePrograms(); 
-  const { items: availableItems = [], loading: loadingItems } = useItems(); 
+  // ==========================================================================
+  // 2. DATA FETCHING (Firebase)
+  // ==========================================================================
+  useEffect(() => {
+    const fetchDropdownData = async () => {
+      try {
+        const [supSnap, grantSnap, itemsSnap, warehouseSnap] = await Promise.all([
+          getDocs(collection(db, "suppliers")),
+          getDocs(collection(db, "grants")),
+          getDocs(collection(db, "items")),
+          getDocs(collection(db, "warehouses"))
+        ]);
+        
+        setWarehouses(warehouseSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        setSuppliers(supSnap.docs.map(doc => ({ id: doc.id, name: doc.data().company || doc.data().supplierName || "N/A" })));
+        setGrants(grantSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        setItemsMaster(itemsSnap.docs.map(doc => ({ id: doc.id, itemName: doc.data().itemName || "N/A" })));
+      } catch (err) {
+        console.error("Critical Error fetching database dropdowns:", err);
+        toast.error("Failed to load initial data.");
+      }
+    };
 
-  const [form, setForm] = useState({
-    supplierId: "",
-    programId: "", 
-    accountCategory: "", // Kani waa field-ka cusub ee accounting-ka raran
-    items: [{ itemId: "", quantity: 0, unitPrice: 0, subTotal: 0 }], 
-    totalAmount: 0,
-    status: "PENDING"
-  });
+    if (isOpen) {
+      fetchDropdownData();
+    }
+  }, [isOpen]);
 
+  // ==========================================================================
+  // 3. EDIT/LOAD LOGIC
+  // ==========================================================================
   useEffect(() => {
     if (poToEdit) {
-      setForm({ ...poToEdit });
+      setSupplierId(poToEdit.supplierId || "");
+      setGrantId(poToEdit.grantId || "");
+      setAccountCategory(poToEdit.accountCategory || "");
+      setWarehouseId(poToEdit.warehouseId || "");
+      setDueDate(poToEdit.dueDate ? poToEdit.dueDate.split("T")[0] : "");
+      setTotalAmount(poToEdit.totalAmount || 0);
+      setPoItems(poToEdit.items || []);
     } else {
-      setForm({
-        supplierId: "",
-        programId: "",
-        accountCategory: "",
-        items: [{ itemId: "", quantity: 0, unitPrice: 0, subTotal: 0 }],
-        totalAmount: 0,
-        status: "PENDING"
-      });
+      setSupplierId("");
+      setGrantId("");
+      setAccountCategory("");
+      setWarehouseId("");
+      setDueDate("");
+      setTotalAmount(0);
+      setPoItems([]);
     }
   }, [poToEdit, isOpen]);
 
+  // ==========================================================================
+  // 4. FINANCIAL & GRANT CALCULATIONS
+  // ==========================================================================
   useEffect(() => {
-    const total = form.items.reduce((acc, curr) => acc + (curr.subTotal || 0), 0);
-    setForm(prev => ({ ...prev, totalAmount: total }));
-  }, [form.items]);
+    if (grantId) {
+      const matchedGrant = grants.find(g => g.id === grantId);
+      if (matchedGrant) {
+        setSelectedGrantObj(matchedGrant);
+        const currentGrantAmount = matchedGrant.amount || 0;
+        const remainder = currentGrantAmount - totalAmount;
+        setRemainingBudget(remainder);
+        setBudgetExceeded(remainder < 0);
 
-  const handleItemChange = (index, field, value) => {
-    const updatedItems = [...form.items];
-    
-    let parsedValue = value;
-    if (field === "quantity") {
-      parsedValue = value === "" ? 0 : parseInt(value) || 0;
-    } else if (field === "unitPrice") {
-      parsedValue = value === "" ? 0 : parseFloat(value) || 0;
+        if (!poToEdit) {
+          const rawItems = matchedGrant.items || [];
+          const formattedItems = rawItems.map(item => ({
+            itemId: item.itemId,
+            qty: parseInt(item.qty, 10) || 0,
+            price: 0,
+            total: 0
+          }));
+          setPoItems(formattedItems);
+          setTotalAmount(0);
+        }
+      }
+    } else {
+      setSelectedGrantObj(null);
+      setRemainingBudget(0);
+      setBudgetExceeded(false);
     }
+  }, [grantId, grants]);
 
-    updatedItems[index][field] = parsedValue;
-    updatedItems[index].subTotal = updatedItems[index].quantity * updatedItems[index].unitPrice;
+  // ==========================================================================
+  // 5. EVENT HANDLERS
+  // ==========================================================================
+  const handlePriceChange = (index, newPrice) => {
+    const updated = [...poItems];
+    const priceNum = parseFloat(newPrice) || 0;
+    
+    updated[index].price = priceNum;
+    updated[index].total = updated[index].qty * priceNum;
+    setPoItems(updated);
 
-    setForm({ ...form, items: updatedItems });
+    const newGrandTotal = updated.reduce((sum, item) => sum + item.total, 0);
+    setTotalAmount(newGrandTotal);
+
+    if (selectedGrantObj) {
+      const remainder = selectedGrantObj.amount - newGrandTotal;
+      setRemainingBudget(remainder);
+      setBudgetExceeded(remainder < 0);
+    }
   };
 
-  const addItemRow = () => {
-    setForm({
-      ...form,
-      items: [...form.items, { itemId: "", quantity: 0, unitPrice: 0, subTotal: 0 }] 
-    });
-  };
-
-  const removeItemRow = (index) => {
-    if (form.items.length === 1) return;
-    const updatedItems = form.items.filter((_, i) => i !== index);
-    setForm({ ...form, items: updatedItems });
+  const getItemName = (id) => {
+    const match = itemsMaster.find(i => i.id === id);
+    return match ? match.itemName : "Unknown Item";
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (poToEdit?.id) {
-      await updatePurchaseOrder(poToEdit.id, form);
-    } else {
-      await createPurchaseOrder(form);
+    if (!supplierId || !grantId || !dueDate || !accountCategory || !warehouseId) {
+      toast.error("Please fill all required fields!");
+      return;
     }
-    onClose();
-    refreshPOs();
+    if (budgetExceeded) {
+      toast.error("Budget limit exceeded!");
+      return;
+    }
+
+    setIsSubmitting(true);
+    const matchedSupplier = suppliers.find(s => s.id === supplierId);
+    const matchedGrant = grants.find(g => g.id === grantId);
+    
+    const orderData = {
+      supplierId,
+      supplierName: matchedSupplier ? matchedSupplier.name : "N/A",
+      grantId,
+      grantName: matchedGrant ? matchedGrant.grantName : "N/A",
+      accountCategory,
+      warehouseId,
+      dueDate,
+      totalAmount,
+      status: poToEdit ? poToEdit.status : "PENDING",
+      items: poItems
+    };
+
+    try {
+      if (poToEdit) {
+        await updatePurchaseOrder(poToEdit.id, orderData);
+        toast.success("PO updated successfully!");
+      } else {
+        await createPurchaseOrder(orderData);
+        toast.success("PO created successfully!");
+      }
+      if (refreshPOs) await refreshPOs();
+      onClose();
+    } catch (error) {
+      console.error(error);
+      toast.error("Error during submission.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
+  // ==========================================================================
+  // 6. RENDER UI
+  // ==========================================================================
   return (
-    <Dialog open={isOpen} onOpenChange={(val) => !val && onClose()}>
-      <DialogContent className="sm:max-w-[500px] w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-lg shadow-xl overflow-hidden max-h-[90vh] overflow-y-auto transition-all">
-        <DialogHeader className="pb-2 border-b border-slate-100 dark:border-slate-800">
-          <DialogTitle className="text-[#1e3a8a] dark:text-blue-400 text-base font-bold uppercase tracking-wider flex items-center gap-2">
-            <ShoppingCart size={18} /> {poToEdit ? "Edit Purchase Order" : "New Purchase Order (PO)"}
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="w-[95vw] sm:max-w-xl bg-white p-6 rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="border-b pb-4">
+          <DialogTitle className="flex items-center gap-3 text-lg font-bold text-slate-800">
+            <FileText className="text-blue-600" />
+            {poToEdit ? "Edit Purchase Order" : "New Purchase Order"}
           </DialogTitle>
+          <DialogDescription className="text-xs text-slate-500">
+            Fill in the details to generate a new procurement request.
+          </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 pt-4">
-          
-          {/* SUPPLIER SELECT */}
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-500 uppercase dark:text-slate-400">Select Supplier</label>
-            <div className="relative">
-              <Select
-                value={form.supplierId}
-                onValueChange={(value) => setForm({ ...form, supplierId: value })}
-                required
-              >
-                <SelectTrigger className="w-full h-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-600 outline-none pl-10 text-sm">
-                  <SelectValue placeholder="-- Choose Vendor --" />
-                </SelectTrigger>
-                
-                <SelectContent className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 max-h-[220px]">
-                  {loadingSuppliers ? (
-                    <SelectItem value="loading" disabled>Loading vendors...</SelectItem>
-                  ) : suppliers.length === 0 ? (
-                    <SelectItem value="none" disabled>No vendors diwaangashan</SelectItem>
-                  ) : (
-                    suppliers.map((s) => (
-                      <SelectItem key={s.id} value={s.id} className="cursor-pointer">
-                        <span className="font-medium text-xs">{s.company} ({s.supplierName})</span>
-                      </SelectItem>
-                    ))
-                  )}
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5 mt-4">
+          {/* Grant & Warehouse */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-[11px] font-bold uppercase text-slate-600">Funding Grant</Label>
+              <Select value={grantId} onValueChange={setGrantId}>
+                <SelectTrigger className="h-10 border-slate-200"><SelectValue placeholder="Grant..." /></SelectTrigger>
+                <SelectContent className="bg-white">
+                  {grants.map(g => <SelectItem key={g.id} value={g.id}>{g.grantName}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <UserCircle className="absolute left-3 top-3 text-slate-400 pointer-events-none" size={15} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-[11px] font-bold uppercase text-slate-600">Warehouse</Label>
+              <Select value={warehouseId} onValueChange={setWarehouseId}>
+                <SelectTrigger className="h-10 border-slate-200"><SelectValue placeholder="Warehouse..." /></SelectTrigger>
+                <SelectContent className="bg-white">
+                  {warehouses.map(w => <SelectItem key={w.id} value={w.id}>{w.warehouseName}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
-          {/* PROJECT / PROGRAM SELECT */}
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-500 uppercase dark:text-slate-400">Select Project / Program</label>
-            <div className="relative">
-              <Select
-                value={form.programId}
-                onValueChange={(value) => setForm({ ...form, programId: value })}
-                required
-              >
-                <SelectTrigger className="w-full h-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-600 outline-none pl-10 text-sm">
-                  <SelectValue placeholder="-- Choose Program --" />
-                </SelectTrigger>
-                
-                <SelectContent className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 max-h-[220px]">
-                  {loadingPrograms ? (
-                    <SelectItem value="loading" disabled>Loading programs...</SelectItem>
-                  ) : programs.length === 0 ? (
-                    <SelectItem value="none" disabled>No programs diwaangashan</SelectItem>
-                  ) : (
-                    programs.map((prog) => (
-                      <SelectItem key={prog.id} value={prog.id} className="cursor-pointer">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-xs">{prog.programName}</span>
-                          <span className="text-[10px] font-mono font-bold text-[#1e3a8a] dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.5 rounded uppercase border border-blue-100/50 dark:border-blue-900/50">
-                            {prog.programCode}
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))
-                  )}
+          {/* Account & Vendor */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-[11px] font-bold uppercase text-slate-600">Account Category</Label>
+              <Select value={accountCategory} onValueChange={setAccountCategory}>
+                <SelectTrigger className="h-10 border-slate-200"><SelectValue placeholder="Account..." /></SelectTrigger>
+                <SelectContent className="bg-white">
+                  <SelectItem value="cash">Cash Account</SelectItem>
+                  <SelectItem value="bank">Bank Account</SelectItem>
                 </SelectContent>
               </Select>
-              <Layers className="absolute left-3 top-3 text-slate-400 pointer-events-none" size={15} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-[11px] font-bold uppercase text-slate-600">Vendor</Label>
+              <Select value={supplierId} onValueChange={setSupplierId}>
+                <SelectTrigger className="h-10 border-slate-200"><SelectValue placeholder="Select Vendor" /></SelectTrigger>
+                <SelectContent>{suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+              </Select>
             </div>
           </div>
 
-          {/* ACCOUNT CATEGORY (ACCOUNTING INTEGRATION) */}
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-500 uppercase dark:text-slate-400">Account Category (Accounting)</label>
-            <div className="relative">
-              <Select
-                value={form.accountCategory}
-                onValueChange={(value) => setForm({ ...form, accountCategory: value })}
-                required
-              >
-                <SelectTrigger className="w-full h-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-600 outline-none pl-10 text-sm">
-                  <SelectValue placeholder="-- Select Expense Account --" />
-                </SelectTrigger>
-                <SelectContent className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100">
-                  {ACCOUNT_CATEGORIES.map((acc) => (
-                    <SelectItem key={acc.id} value={acc.id} className="cursor-pointer text-xs">
-                      {acc.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Landmark className="absolute left-3 top-3 text-slate-400 pointer-events-none" size={15} />
-            </div>
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-[11px] font-bold uppercase text-slate-600">Due Date</Label>
+            <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="h-10 border-slate-200" />
           </div>
 
-          {/* DYNAMIC ITEMS MANAGEMENT */}
-          <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-3">
-            <div className="flex justify-between items-center mb-1">
-              <h3 className="text-xs font-bold text-[#1e3a8a] dark:text-blue-400 uppercase tracking-wider">Requested Items List</h3>
-              <Button type="button" onClick={addItemRow} size="sm" className="bg-[#1e3a8a] hover:bg-[#172554] text-white text-xs gap-1 h-7 px-2">
-                <Plus size={12} /> Add Item
-              </Button>
-            </div>
-
-            <div className="space-y-3 max-h-[200px] overflow-y-auto pr-1">
-              {form.items.map((item, index) => (
-                <div key={index} className="space-y-2 bg-slate-50 dark:bg-slate-800/40 p-3 rounded-lg border border-slate-100 dark:border-slate-800 relative">
-                  
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 relative">
-                      <Select
-                        value={item.itemId}
-                        onValueChange={(value) => handleItemChange(index, "itemId", value)}
-                        required
-                      >
-                        <SelectTrigger className="w-full h-8 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-1 focus:ring-blue-600 outline-none pl-8 text-xs">
-                          <SelectValue placeholder={loadingItems ? "Loading Items..." : "-- Choose Item --"} />
-                        </SelectTrigger>
-                        
-                        <SelectContent className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 max-h-[200px]">
-                          {availableItems.length === 0 ? (
-                            <SelectItem value="none" disabled>No items diwaangashan</SelectItem>
-                          ) : (
-                            availableItems.map((i) => (
-                              <SelectItem key={i.id} value={i.id} className="cursor-pointer text-xs">
-                                {i.itemName} {i.description ? `(${i.description})` : ""}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
-                      <Package className="absolute left-2.5 top-2.5 text-slate-400 pointer-events-none" size={13} />
-                    </div>
-                    
-                    <button
-                      type="button"
-                      onClick={() => removeItemRow(index)}
-                      disabled={form.items.length === 1}
-                      className={`p-1 rounded-md transition-all ${form.items.length === 1 ? "text-slate-300 dark:text-slate-700 cursor-not-allowed" : "text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"}`}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2 items-center pt-1 border-t border-dashed border-slate-200 dark:border-slate-700">
-                    <div>
-                      <span className="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">Qty</span>
-                      <Input
-                        type="number"
-                        placeholder="0"
-                        min="0"
-                        className="h-8 text-xs font-mono"
-                        value={item.quantity === 0 ? "" : item.quantity} 
-                        onChange={(e) => handleItemChange(index, "quantity", e.target.value)}
-                        onBlur={(e) => e.target.value === "" && handleItemChange(index, "quantity", 0)}
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <span className="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">Price</span>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        min="0"
-                        className="h-8 text-xs font-mono"
-                        value={item.unitPrice === 0 ? "" : item.unitPrice} 
-                        onChange={(e) => handleItemChange(index, "unitPrice", e.target.value)}
-                        onBlur={(e) => e.target.value === "" && handleItemChange(index, "unitPrice", 0)}
-                        required
-                      />
-                    </div>
-
-                    <div className="text-right">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">Sub Total</span>
-                      <span className="font-mono text-xs font-bold text-slate-700 dark:text-slate-300 block pt-1.5 pr-1">
-                        ${(item.subTotal || 0).toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-
+          {/* Items & Budget */}
+          <div className="border rounded-lg p-4 bg-slate-50">
+            <h4 className="text-[11px] font-bold uppercase text-slate-600 mb-3">Items & Pricing</h4>
+            {poItems.length === 0 ? (
+              <div className="text-center py-4 text-xs text-slate-400">Please select a grant to load items.</div>
+            ) : (
+              poItems.map((item, idx) => (
+                <div key={idx} className="flex items-center gap-4 py-2 border-b last:border-0">
+                  <Package size={16} className="text-slate-400" />
+                  <span className="flex-1 text-xs font-medium">{getItemName(item.itemId)}</span>
+                  <Input type="number" className="w-20 h-8 text-xs" value={item.price} onChange={(e) => handlePriceChange(idx, e.target.value)} />
+                  <span className="w-16 text-right text-xs font-bold">${item.total.toFixed(2)}</span>
                 </div>
-              ))}
+              ))
+            )}
+          </div>
+
+          {selectedGrantObj && (
+            <div className="bg-slate-800 text-white p-3 rounded-lg flex justify-between text-xs font-mono">
+              <span>Remaining Budget:</span>
+              <span className={remainingBudget < 0 ? "text-red-400" : "text-green-400"}>${remainingBudget.toLocaleString()}</span>
             </div>
-          </div>
+          )}
 
-          {/* GRAND TOTAL ROW */}
-          <div className="flex justify-between items-center bg-slate-100 dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 mt-1">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Grand Total:</span>
-            <span className="text-lg font-mono font-black text-[#1e3a8a] dark:text-blue-400">${form.totalAmount.toLocaleString()}</span>
-          </div>
-
-          {/* ACTION BUTTONS */}
-          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-            <Button type="button" variant="outline" onClick={onClose} className="h-9 text-xs border-slate-200 dark:border-slate-700">Cancel</Button>
-            <Button type="submit" className="h-9 text-xs bg-[#1e3a8a] dark:bg-blue-600 hover:bg-[#172554] dark:hover:bg-blue-700 text-white shadow-md border-none">
-              {poToEdit ? "Update Order" : "Save Order"}
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={isSubmitting || budgetExceeded}>
+              {isSubmitting ? <Loader2 className="animate-spin" /> : "Confirm Order"}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

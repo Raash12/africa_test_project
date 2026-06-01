@@ -70,49 +70,39 @@ export default function CreateStockIn({ isOpen, onClose, refreshStockIn }) {
     fetchInvoiceItems();
   }, [purchaseInvoiceId]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!warehouseId || !purchaseInvoiceId) return toast.error("Fadlan dooro bakhaarka iyo PI-ga.");
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  if (!warehouseId || !purchaseInvoiceId) return toast.error("Fadlan dooro bakhaarka iyo PI-ga.");
 
-    setIsSubmitting(true);
-    try {
-      const matchedPI = purchaseInvoices.find(pi => pi.id === purchaseInvoiceId);
-      
-      const preparedItems = invoiceItems.map(item => {
-        const itemId = item.itemId || item.id || (item.item && item.item.id);
-        const globalMatch = globalItems.find(g => g.id === itemId);
-        
-        return {
-          itemId: itemId || "N/A",
-          itemName: globalMatch?.itemName || globalMatch?.name || item.itemName || item.name || "Unknown Item",
-          quantity: Number(item.quantity || item.qty || 0),
-          costPrice: Number(item.costPrice || item.price || item.unitPrice || 0),
-        };
-      });
+  setIsSubmitting(true);
+  try {
+    const matchedPI = purchaseInvoices.find(pi => pi.id === purchaseInvoiceId);
+    
+    // Clean items before sending
+    const itemsToProcess = invoiceItems.map(item => ({
+      itemId: item.itemId || item.id,
+      itemName: item.itemName || "Unknown",
+      quantity: Number(item.qty || item.quantity || 0),
+      costPrice: Number(item.price || item.costPrice || 0)
+    }));
 
-      await createStockIn({
-        warehouseId,
-        purchaseInvoiceId,
-        invoiceNumber: matchedPI?.invoiceNumber || matchedPI?.invoiceNo || "N/A",
-        items: preparedItems,
-        receivedAt: new Date().toISOString(),
-      });
+    await createStockIn({
+      warehouseId, // Ensure this string is passed correctly
+      purchaseInvoiceId,
+      invoiceNumber: matchedPI?.invoiceNumber || "N/A",
+      items: itemsToProcess
+    });
 
-      toast.success("Si guul leh ayaa loo keydiyay sxb!");
-      
-      setPurchaseInvoiceId("");
-      setWarehouseId("");
-      setInvoiceItems([]);
-      
-      if (refreshStockIn) await refreshStockIn();
-      onClose();
-    } catch (err) { 
-      toast.error("Khalad ayaa dhacay xilliga keydinta sxb."); 
-    } finally { 
-      setIsSubmitting(false); 
-    }
-  };
-
+    toast.success("Inventory updated successfully!");
+    onClose();
+    if (refreshStockIn) refreshStockIn();
+  } catch (err) {
+    console.error(err);
+    toast.error("Failed to update inventory.");
+  } finally {
+    setIsSubmitting(false);
+  }
+};
   return (
     <Dialog open={isOpen} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-[92vw] sm:max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl flex flex-col overflow-hidden shadow-2xl">
