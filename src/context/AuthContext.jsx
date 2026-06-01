@@ -34,13 +34,17 @@ export function AuthProvider({ children }) {
           setCurrentUser({ uid: user.uid, ...userData });
           setRole(userData.role || "Admin");
         } catch (error) {
-          console.error("Auth Error:", error);
+          console.error("Auth Error sxb:", error);
+        } finally {
+          // ✅ FIX: Tani waxay dammaanad qaadaysaa in loading-ka la damiyo 
+          // xataa haddii uu Ad-blocker xannibo Firestore xiriirkeeda.
+          setLoading(false);
         }
       } else {
         setCurrentUser(null);
         setRole(null);
+        setLoading(false); // Damis kale haddii uusan user-ku jirin
       }
-      setLoading(false);
     });
 
     return () => unsub();

@@ -55,36 +55,59 @@ export default function ListAdjustment() {
     if (refreshStockIn) await refreshStockIn();
   };
 
-  // 🌟 FIX: Dynamic Fallback oo aad u awood badan si loo baabi'iyo N/A mar walba
+  // 🛠️ Halkan waxaa lagu saxay Fallback-ga Magaca alaabta iyo kala soocidda nadiifta ah
   const processedAdjustments = useMemo(() => {
-    return adjustments.map(e => {
-      // 1. Ku raadi ID-ga rasmiga ah ama Invoice Number-ka labadaba
+    const mapped = adjustments.map(e => {
+      // Ku raadi invoiceNumber ama stockItemId gudaha Stock-in entries
       let matchedStockIn = stockInEntries.find(si => 
         si.id === e.stockItemId || 
-        (si.invoiceNumber && si.invoiceNumber === e.invoiceNumber) ||
-        (si.invoiceNumber && si.invoiceNumber === e.stockItemId)
+        si.invoiceNumber === e.invoiceNumber ||
+        si.invoiceNumber === e.stockItemId
       );
 
-      // 2. Haddii wali la waayo, ku raadi shayga magiciisa (Item Name) bakhaarka ugu dhow ee uu yaal
+      // Haddii wali la waayo, ku raadi magaca haddii uu jiro
       if (!matchedStockIn && e.itemName) {
         matchedStockIn = stockInEntries.find(si => 
           si.items?.some(item => (item.itemName || item.name) === e.itemName)
         );
       }
 
-      // 3. Soo saar magaca bakhaarka saxda ah
-      const foundWarehouse = matchedStockIn?.warehouseName || matchedStockIn?.warehouse;
+      // RADINTA MAGACA ALAABTA (ITEM NAME)
+      let finalItemName = e.itemName || e.stockItemName || e.name;
       
-      // 4. Haddii lasoo dhigay "N/A" ama la waayay, sii fallback adag
+      // Haddii uu "Unknown" yahay, si toos ah uga soo dhuuq matchedStockIn
+      if (!finalItemName || finalItemName === "Unknown") {
+        if (matchedStockIn) {
+          // Haddii uu hal item yahay ama array items ah yahay ka qaad kii ugu horreeyey
+          const firstItem = matchedStockIn.items?.[0];
+          finalItemName = firstItem?.itemName || firstItem?.name || matchedStockIn.itemName || matchedStockIn.name;
+        }
+      }
+
+      // Haddii wali dhulka lala jiro, sii fallback-gii hore ee aad haysatay (sida "cow" ama "lo")
+      if (!finalItemName || finalItemName === "Unknown") {
+        finalItemName = e.selectedItemName || "Item Available";
+      }
+
+      // RADINTA WAREHOUSE
+      const foundWarehouse = matchedStockIn?.warehouseName || matchedStockIn?.warehouse;
       let finalWarehouse = e.warehouseName || e.warehouse || e.werehouse;
       if (!finalWarehouse || finalWarehouse === "N/A") {
-        finalWarehouse = foundWarehouse || "Main Warehouse";
+        finalWarehouse = foundWarehouse || "MUQDISHO STORE";
       }
 
       return {
         ...e,
+        itemName: finalItemName,
         displayWarehouse: finalWarehouse
       };
+    });
+
+    // 🌟 FIX: Si badbaado leh u kala sooc adigoo adeegsanaya .slice() si uusan array-gii asalka ahaa u jabin
+    return mapped.slice().sort((a, b) => {
+      const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : new Date(a.createdAt || 0).getTime();
+      const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt || 0).getTime();
+      return timeB - timeA;
     });
   }, [adjustments, stockInEntries]);
 
@@ -93,7 +116,7 @@ export default function ListAdjustment() {
     return processedAdjustments.filter(e => 
       e.itemName?.toLowerCase().includes(searchLower) ||
       e.invoiceNumber?.toLowerCase().includes(searchLower) ||
-      e.displayWarehouse.toLowerCase().includes(searchLower)
+      e.displayWarehouse?.toLowerCase().includes(searchLower)
     );
   }, [processedAdjustments, search]);
 

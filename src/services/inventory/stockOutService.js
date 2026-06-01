@@ -1,6 +1,27 @@
 import { db } from "@/lib/firebase";
-import { collection, getDocs, doc, runTransaction } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, runTransaction } from "firebase/firestore";
 
+// ==========================================
+// 1. READ: SOO RARISTA WIXII BAXAY (PROJECTS)
+// ==========================================
+export const getStockOutEntries = async () => {
+  try {
+    const q = query(collection(db, "projects"), orderBy("createdAt", "desc"));
+    const snapshot = await getDocs(q);
+    
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+  } catch (error) {
+    console.error("Error fetching projects from service sxb:", error);
+    throw error;
+  }
+};
+
+// ==========================================
+// 2. READ: SOO RARISTA ADJUSTMENTS-KA
+// ==========================================
 const adjustmentCollection = collection(db, "stock_adjustments");
 
 export const getStockAdjustments = async () => {
@@ -14,6 +35,9 @@ export const getStockAdjustments = async () => {
   }
 };
 
+// ==========================================
+// 3. WRITE: ADJUST STOCK (TRANSACTION)
+// ==========================================
 export const adjustStock = async (adjustmentData) => {
   const { stockItemId, subItemId, adjustmentType, quantity, notes, warehouseName } = adjustmentData; 
 
@@ -75,7 +99,6 @@ export const adjustStock = async (adjustmentData) => {
         subItemId,
         itemName: selectedItemName,
         invoiceNumber: stockInData.invoiceNumber || "N/A",
-        // 🌟 HUBINTA WAREHOUSE: Waxay mudnaanta siinaysaa foomka, kadib xogta DB, ugu dambayn "Main Warehouse"
         warehouseName: warehouseName || stockInData.warehouseName || stockInData.warehouse || stockInData.warehouseId || "Main Warehouse",
         adjustmentType,
         quantityChanged: adjustQty,
