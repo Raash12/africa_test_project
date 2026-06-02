@@ -23,25 +23,23 @@ import {
   FolderHeart, 
   Truck,
   FileText, 
-  Receipt,   
+  Receipt,    
   ShoppingCart, 
   CreditCard,
   Home,
   ArrowUpRight, 
   ArrowDownLeft, 
-  SlidersHorizontal, // 🌟 CUSUB: Icon-ka Stock Adjustment
+  SlidersHorizontal,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
-// 👉 IMPORT YOUR LOGO
 import logo from "@/assets/logo.jpeg";
 
 export default function DashboardLayout() {
   const [open, setOpen] = useState(true);
   const [dark, setDark] = useState(false);
   
-  // States-ka lagu maamulo Dropdowns-ka
   const [hrmOpen, setHrmOpen] = useState(false);
   const [pmOpen, setPmOpen] = useState(false); 
   const [accountOpen, setAccountOpen] = useState(false); 
@@ -51,7 +49,6 @@ export default function DashboardLayout() {
 
   const location = useLocation();
 
-  // Navigation-ka caadiga ah (Kaliya Dashboard)
   const navItems = [
     {
       name: "Dashboard",
@@ -60,16 +57,14 @@ export default function DashboardLayout() {
     },
   ];
 
-  // 🌟 HORUMARINTA CUSUB: Waxaa halkan lagu daray Stock Adjustment sxb
   const inventoryItems = [
     { name: "Items", path: "/items", icon: Package },
     { name: "Warehouse", path: "/warehouses", icon: Home },
     { name: "Stock In", path: "/stock-in", icon: ArrowUpRight },   
     { name: "Stock Out", path: "/stock-out", icon: ArrowDownLeft }, 
-    { name: "Stock Adjustment", path: "/stock-adjustment", icon: SlidersHorizontal }, // 🌟 CUSUB
+    { name: "Stock Adjustment", path: "/stock-adjustment", icon: SlidersHorizontal },
   ];
 
-  // Kooxda hoos timaada Program Management (Operations)
   const programManagementItems = [
     { name: "Programs", path: "/programs", icon: Layers },
     { name: "Donors", path: "/donors", icon: HandCoins },
@@ -78,23 +73,19 @@ export default function DashboardLayout() {
     { name: "Beneficiaries", path: "/beneficiaries", icon: HeartHandshake },
   ];
 
-  // Kooxda hoos timaada Account Parent-ka
   const accountItems = [
     { name: "Suppliers", path: "/suppliers", icon: Truck },
   ];
 
-  // Kooxda hoos timaada Waalidka Purchase
   const purchaseItems = [
     { name: "Purchase Order", path: "/purchase-orders", icon: FileText },
     { name: "Purchase Invoice", path: "/purchase-invoices", icon: Receipt },
   ];
 
-  // Kooxda hoos timaada Waalidka Payment
   const paymentItems = [
     { name: "Payment Entry", path: "/payment-entries", icon: CreditCard },
   ];
 
-  // Hubinta firfircoonida si Parent-ka loo iftiimiyo
   const isInventoryActive = inventoryItems.some(item => location.pathname === item.path);
   const isPmActive = programManagementItems.some(item => location.pathname === item.path);
   const isAccountActive = accountItems.some(item => location.pathname === item.path);
@@ -104,7 +95,8 @@ export default function DashboardLayout() {
 
   return (
     <div className={dark ? "dark" : ""}>
-      <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+      {/* ADDED: h-screen overflow-hidden to parent */}
+      <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
 
         {/* SIDEBAR */}
         <aside
@@ -112,7 +104,7 @@ export default function DashboardLayout() {
             bg-slate-900 text-white
             transition-all duration-300
             ${open ? "w-64" : "w-20"}
-            p-4 flex flex-col shadow-2xl z-20
+            p-4 flex flex-col shadow-2xl z-20 h-full
           `}
         >
 
@@ -144,10 +136,17 @@ export default function DashboardLayout() {
               <Menu size={20} />
             </Button>
           </div>
-
-          {/* NAVIGATION */}
-          <nav className="space-y-1.5 flex-1 overflow-y-auto">
-            {/* Main Items (Dashboard) */}
+{/* NAVIGATION */}
+<nav 
+  className="space-y-1.5 flex-1 overflow-y-auto"
+  style={{ 
+    scrollbarWidth: "none", 
+    msOverflowStyle: "none" 
+  }}
+>
+  <style>{`
+    nav::-webkit-scrollbar { display: none; }
+  `}</style>
             {navItems.map((item) => {
               const Icon = item.icon;
               const active = location.pathname === item.path;
@@ -205,7 +204,6 @@ export default function DashboardLayout() {
                 )}
               </button>
 
-              {/* Child Items ee Inventory (Items, Warehouse, Stock In, Stock Out, Stock Adjustment) */}
               {inventoryOpen && open && (
                 <div className="pl-6 space-y-1 transition-all duration-200">
                   {inventoryItems.map((child) => {
@@ -267,7 +265,6 @@ export default function DashboardLayout() {
                 )}
               </button>
 
-              {/* Child Items ee Program Management */}
               {pmOpen && open && (
                 <div className="pl-6 space-y-1 transition-all duration-200">
                   {programManagementItems.map((child) => {
@@ -329,7 +326,6 @@ export default function DashboardLayout() {
                 )}
               </button>
 
-              {/* Child Items ee Account */}
               {accountOpen && open && (
                 <div className="pl-6 space-y-1 transition-all duration-200">
                   {accountItems.map((child) => {
@@ -391,7 +387,6 @@ export default function DashboardLayout() {
                 )}
               </button>
 
-              {/* Child Items ee Purchase */}
               {purchaseOpen && open && (
                 <div className="pl-6 space-y-1 transition-all duration-200">
                   {purchaseItems.map((child) => {
@@ -453,7 +448,6 @@ export default function DashboardLayout() {
                 )}
               </button>
 
-              {/* Child Items ee Payment */}
               {paymentOpen && open && (
                 <div className="pl-6 space-y-1 transition-all duration-200">
                   {paymentItems.map((child) => {
@@ -515,7 +509,6 @@ export default function DashboardLayout() {
                 )}
               </button>
 
-              {/* Children of HRM */}
               {hrmOpen && open && (
                 <div className="pl-6 space-y-1 transition-all duration-200">
                   <Link
@@ -579,8 +572,8 @@ export default function DashboardLayout() {
           </div>
         </aside>
 
-        {/* MAIN CONTENT */}
-        <main className="flex-1 flex flex-col min-h-screen overflow-hidden">
+        {/* MAIN CONTENT - ADDED: overflow-y-auto so only this scrolls */}
+        <main className="flex-1 flex flex-col h-screen overflow-y-auto">
           {/* HEADER */}
           <header className="relative py-8 px-8 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
             <div className="absolute top-0 right-0 w-64 h-full bg-gradient-to-l from-green-500/5 to-transparent pointer-events-none" />
@@ -609,7 +602,7 @@ export default function DashboardLayout() {
           </header>
 
           {/* DYNAMIC CONTENT */}
-          <div className="flex-1 p-8 overflow-auto bg-slate-50 dark:bg-slate-950">
+          <div className="flex-1 p-8 bg-slate-50 dark:bg-slate-950">
             <div className="max-w-7xl mx-auto">
               <Outlet />
             </div>
