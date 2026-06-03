@@ -25,6 +25,9 @@ import ListWarehouse from "./pages/Inventory/ListWarehouse";
 import ListStockIn from "./pages/Inventory/ListStockIn";
 import ListStockOut from "./pages/Inventory/ListStockOut"; // 🌟 Stock Out Module path-kiisa
 import ListAdjustment from "./pages/Inventory/listAdjustment";
+import ListFiscalYear from "./pages/Accounting/ListFiscalYear";
+import ListAccounts from "./pages/Accounting/ListAccounts";
+import ListFinanceBook from "./pages/Accounting/ListFinanceBook";
 
 
 // 🛡️ PROTECTED ROUTE COMPONENT (Wuxuu xalliyaa is-diidmada Brave iyo Chrome)
@@ -121,7 +124,15 @@ export default function App() {
         <Route path="stock-out" element={<ListStockOut />} />
         {/* ADJUSTMENT ROUTE */}
         <Route path="stock-adjustment" element={<ListAdjustment />} />
+        {/* ACCOUNTING - FISCAL YEAR ROUTE */}
+        <Route path="fiscal-years" element={<ListFiscalYear />} />
+        {/* ACCOUNTING - CHART OF ACCOUNTS ROUTE */}
+        <Route path="chart-of-accounts" element={<ListAccounts />} />
+        {/* ACCOUNTING - FINANCE BOOKS ROUTE */}
+        <Route path="finance-books" element={<ListFinanceBook />} />
+        
       </Route>
+
 
       {/* Haddii uu qofku qoro URL khaldan, si toos ah ugu celi guriga */}
       <Route path="*" element={<Navigate to="/" replace />} />

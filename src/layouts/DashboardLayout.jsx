@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signOut } from "firebase/auth";
 
 import { auth } from "@/lib/firebase";
@@ -14,38 +14,40 @@ import {
   FolderKanban,
   LogOut,
   Package,
-  Users, 
+  Users,
   Handshake,
   HeartHandshake,
   Layers,
   ChevronDown,
   UserCheck,
-  FolderHeart, 
   Truck,
-  FileText, 
-  Receipt,    
-  ShoppingCart, 
+  FileText,
+  Receipt,
   CreditCard,
   Home,
-  ArrowUpRight, 
-  ArrowDownLeft, 
+  ArrowUpRight,
+  ArrowDownLeft,
   SlidersHorizontal,
+  CalendarDays,
+  FolderTree,
+  ShoppingCart,
+  BookOpen, // Waxaa la soo dhex qaatay icon-ka Finance Book
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-
 import logo from "@/assets/logo.jpeg";
 
 export default function DashboardLayout() {
   const [open, setOpen] = useState(true);
   const [dark, setDark] = useState(false);
-  
-  const [hrmOpen, setHrmOpen] = useState(false);
-  const [pmOpen, setPmOpen] = useState(false); 
-  const [accountOpen, setAccountOpen] = useState(false); 
-  const [purchaseOpen, setPurchaseOpen] = useState(false); 
+
+  // States-ka dropdown-ada menu-yada
+  const [inventoryOpen, setInventoryOpen] = useState(false);
+  const [pmOpen, setPmOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [purchaseOpen, setPurchaseOpen] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
-  const [inventoryOpen, setInventoryOpen] = useState(false); 
+  const [hrmOpen, setHrmOpen] = useState(false);
 
   const location = useLocation();
 
@@ -60,8 +62,8 @@ export default function DashboardLayout() {
   const inventoryItems = [
     { name: "Items", path: "/items", icon: Package },
     { name: "Warehouse", path: "/warehouses", icon: Home },
-    { name: "Stock In", path: "/stock-in", icon: ArrowUpRight },   
-    { name: "Stock Out", path: "/stock-out", icon: ArrowDownLeft }, 
+    { name: "Stock In", path: "/stock-in", icon: ArrowUpRight },
+    { name: "Stock Out", path: "/stock-out", icon: ArrowDownLeft },
     { name: "Stock Adjustment", path: "/stock-adjustment", icon: SlidersHorizontal },
   ];
 
@@ -73,7 +75,11 @@ export default function DashboardLayout() {
     { name: "Beneficiaries", path: "/beneficiaries", icon: HeartHandshake },
   ];
 
+  // Halkan waxaa lagu daray Finance Book
   const accountItems = [
+    { name: "Chart of Accounts", path: "/chart-of-accounts", icon: FolderTree },
+    { name: "Finance Book", path: "/finance-books", icon: BookOpen },
+    { name: "Fiscal Years", path: "/fiscal-years", icon: CalendarDays },
     { name: "Suppliers", path: "/suppliers", icon: Truck },
   ];
 
@@ -86,18 +92,28 @@ export default function DashboardLayout() {
     { name: "Payment Entry", path: "/payment-entries", icon: CreditCard },
   ];
 
-  const isInventoryActive = inventoryItems.some(item => location.pathname === item.path);
-  const isPmActive = programManagementItems.some(item => location.pathname === item.path);
-  const isAccountActive = accountItems.some(item => location.pathname === item.path);
-  const isPurchaseActive = purchaseItems.some(item => location.pathname === item.path);
-  const isPaymentActive = paymentItems.some(item => location.pathname === item.path);
+  // Hubinta in menu-ga hadda la joogo uu active yahay
+  const isInventoryActive = inventoryItems.some((item) => location.pathname === item.path);
+  const isPmActive = programManagementItems.some((item) => location.pathname === item.path);
+  const isAccountActive = accountItems.some((item) => location.pathname === item.path);
+  const isPurchaseActive = purchaseItems.some((item) => location.pathname === item.path);
+  const isPaymentActive = paymentItems.some((item) => location.pathname === item.path);
   const isHrmActive = location.pathname === "/employees" || location.pathname === "/users";
+
+  // In dropdown-ku si toos ah isu furo haddii link gudihiisa ah la joogo
+  useEffect(() => {
+    if (isInventoryActive) setInventoryOpen(true);
+    if (isPmActive) setPmOpen(true);
+    if (isAccountActive) setAccountOpen(true);
+    if (isPurchaseActive) setPurchaseOpen(true);
+    if (isPaymentActive) setPaymentOpen(true);
+    if (isHrmActive) setHrmOpen(true);
+  }, [location.pathname, isInventoryActive, isPmActive, isAccountActive, isPurchaseActive, isPaymentActive, isHrmActive]);
 
   return (
     <div className={dark ? "dark" : ""}>
-      {/* ADDED: h-screen overflow-hidden to parent */}
       <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
-
+        
         {/* SIDEBAR */}
         <aside
           className={`
@@ -107,17 +123,16 @@ export default function DashboardLayout() {
             p-4 flex flex-col shadow-2xl z-20 h-full
           `}
         >
-
           {/* LOGO AREA */}
           <div className="flex items-center justify-between mb-10">
-            {open && (
+            {open ? (
               <div className="flex items-center gap-3">
                 <div className="p-1.5 bg-white rounded-lg">
-                    <img
-                      src={logo}
-                      alt="AIF Logo"
-                      className="w-8 h-8 object-contain"
-                    />
+                  <img
+                    src={logo}
+                    alt="AIF Logo"
+                    className="w-8 h-8 object-contain"
+                  />
                 </div>
                 <div>
                   <h1 className="text-lg font-bold tracking-tight text-white">
@@ -125,28 +140,47 @@ export default function DashboardLayout() {
                   </h1>
                 </div>
               </div>
+            ) : (
+              <div className="p-1 bg-white rounded-md mx-auto">
+                <img src={logo} alt="AIF Logo" className="w-6 h-6 object-contain" />
+              </div>
             )}
 
+            {open && (
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => setOpen(!open)}
+                className="text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              >
+                <Menu size={20} />
+              </Button>
+            )}
+          </div>
+
+          {!open && (
             <Button
               size="icon"
               variant="ghost"
               onClick={() => setOpen(!open)}
-              className="text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              className="text-slate-400 hover:text-white hover:bg-slate-800 transition-colors mx-auto mb-6"
             >
               <Menu size={20} />
             </Button>
-          </div>
-{/* NAVIGATION */}
-<nav 
-  className="space-y-1.5 flex-1 overflow-y-auto"
-  style={{ 
-    scrollbarWidth: "none", 
-    msOverflowStyle: "none" 
-  }}
->
-  <style>{`
-    nav::-webkit-scrollbar { display: none; }
-  `}</style>
+          )}
+
+          {/* NAVIGATION */}
+          <nav
+            className="space-y-1.5 flex-1 overflow-y-auto"
+            style={{
+              scrollbarWidth: "none",
+              msOverflowStyle: "none",
+            }}
+          >
+            <style>{`
+              nav::-webkit-scrollbar { display: none; }
+            `}</style>
+
             {navItems.map((item) => {
               const Icon = item.icon;
               const active = location.pathname === item.path;
@@ -165,6 +199,7 @@ export default function DashboardLayout() {
                         ? "bg-green-600 text-white shadow-lg shadow-green-900/20"
                         : "text-slate-400 hover:bg-slate-800 hover:text-white"
                     }
+                    ${!open && "justify-center px-0"}
                   `}
                 >
                   <Icon size={20} />
@@ -187,9 +222,10 @@ export default function DashboardLayout() {
                   text-sm font-medium
                   ${
                     isInventoryActive
-                      ? "text-white bg-slate-800/50 font-semibold" 
+                      ? "text-white bg-slate-800/50 font-semibold"
                       : "text-slate-400 hover:bg-slate-800 hover:text-white"
                   }
+                  ${!open && "justify-center px-0"}
                 `}
               >
                 <div className="flex items-center gap-3">
@@ -197,9 +233,9 @@ export default function DashboardLayout() {
                   {open && <span>Inventory</span>}
                 </div>
                 {open && (
-                  <ChevronDown 
-                    size={16} 
-                    className={`transition-transform duration-200 ${inventoryOpen ? "rotate-180" : ""}`} 
+                  <ChevronDown
+                    size={16}
+                    className={`transition-transform duration-200 ${inventoryOpen ? "rotate-180" : ""}`}
                   />
                 )}
               </button>
@@ -209,7 +245,7 @@ export default function DashboardLayout() {
                   {inventoryItems.map((child) => {
                     const ChildIcon = child.icon;
                     const isChildActive = location.pathname === child.path;
-                    
+
                     return (
                       <Link
                         key={child.name}
@@ -234,7 +270,7 @@ export default function DashboardLayout() {
               )}
             </div>
 
-            {/* PARENT 1: PROGRAM MANAGEMENT */}
+            {/* PARENT: PROGRAM MANAGEMENT */}
             <div className="space-y-1">
               <button
                 onClick={() => {
@@ -248,19 +284,20 @@ export default function DashboardLayout() {
                   text-sm font-medium
                   ${
                     isPmActive
-                      ? "text-white bg-slate-800/50 font-semibold" 
+                      ? "text-white bg-slate-800/50 font-semibold"
                       : "text-slate-400 hover:bg-slate-800 hover:text-white"
                   }
+                  ${!open && "justify-center px-0"}
                 `}
               >
                 <div className="flex items-center gap-3">
-                  <FolderHeart size={20} className={isPmActive ? "text-green-500" : ""} />
+                  <Layers size={20} className={isPmActive ? "text-green-500" : ""} />
                   {open && <span>Operations</span>}
                 </div>
                 {open && (
-                  <ChevronDown 
-                    size={16} 
-                    className={`transition-transform duration-200 ${pmOpen ? "rotate-180" : ""}`} 
+                  <ChevronDown
+                    size={16}
+                    className={`transition-transform duration-200 ${pmOpen ? "rotate-180" : ""}`}
                   />
                 )}
               </button>
@@ -270,7 +307,7 @@ export default function DashboardLayout() {
                   {programManagementItems.map((child) => {
                     const ChildIcon = child.icon;
                     const isChildActive = location.pathname === child.path;
-                    
+
                     return (
                       <Link
                         key={child.name}
@@ -295,7 +332,7 @@ export default function DashboardLayout() {
               )}
             </div>
 
-            {/* PARENT 2: ACCOUNT */}
+            {/* PARENT: ACCOUNTING (Halkan ayuu ku jiraa Finance Book) */}
             <div className="space-y-1">
               <button
                 onClick={() => {
@@ -309,19 +346,20 @@ export default function DashboardLayout() {
                   text-sm font-medium
                   ${
                     isAccountActive
-                      ? "text-white bg-slate-800/50 font-semibold" 
+                      ? "text-white bg-slate-800/50 font-semibold"
                       : "text-slate-400 hover:bg-slate-800 hover:text-white"
                   }
+                  ${!open && "justify-center px-0"}
                 `}
               >
                 <div className="flex items-center gap-3">
                   <Handshake size={20} className={isAccountActive ? "text-green-500" : ""} />
-                  {open && <span>Account</span>}
+                  {open && <span>Accounting</span>}
                 </div>
                 {open && (
-                  <ChevronDown 
-                    size={16} 
-                    className={`transition-transform duration-200 ${accountOpen ? "rotate-180" : ""}`} 
+                  <ChevronDown
+                    size={16}
+                    className={`transition-transform duration-200 ${accountOpen ? "rotate-180" : ""}`}
                   />
                 )}
               </button>
@@ -331,7 +369,7 @@ export default function DashboardLayout() {
                   {accountItems.map((child) => {
                     const ChildIcon = child.icon;
                     const isChildActive = location.pathname === child.path;
-                    
+
                     return (
                       <Link
                         key={child.name}
@@ -356,7 +394,7 @@ export default function DashboardLayout() {
               )}
             </div>
 
-            {/* PARENT 3: PURCHASE */}
+            {/* PARENT: PURCHASE */}
             <div className="space-y-1">
               <button
                 onClick={() => {
@@ -370,9 +408,10 @@ export default function DashboardLayout() {
                   text-sm font-medium
                   ${
                     isPurchaseActive
-                      ? "text-white bg-slate-800/50 font-semibold" 
+                      ? "text-white bg-slate-800/50 font-semibold"
                       : "text-slate-400 hover:bg-slate-800 hover:text-white"
                   }
+                  ${!open && "justify-center px-0"}
                 `}
               >
                 <div className="flex items-center gap-3">
@@ -380,9 +419,9 @@ export default function DashboardLayout() {
                   {open && <span>Purchase</span>}
                 </div>
                 {open && (
-                  <ChevronDown 
-                    size={16} 
-                    className={`transition-transform duration-200 ${purchaseOpen ? "rotate-180" : ""}`} 
+                  <ChevronDown
+                    size={16}
+                    className={`transition-transform duration-200 ${purchaseOpen ? "rotate-180" : ""}`}
                   />
                 )}
               </button>
@@ -392,7 +431,7 @@ export default function DashboardLayout() {
                   {purchaseItems.map((child) => {
                     const ChildIcon = child.icon;
                     const isChildActive = location.pathname === child.path;
-                    
+
                     return (
                       <Link
                         key={child.name}
@@ -417,7 +456,7 @@ export default function DashboardLayout() {
               )}
             </div>
 
-            {/* PARENT 4: PAYMENT */}
+            {/* PARENT: PAYMENT */}
             <div className="space-y-1">
               <button
                 onClick={() => {
@@ -431,9 +470,10 @@ export default function DashboardLayout() {
                   text-sm font-medium
                   ${
                     isPaymentActive
-                      ? "text-white bg-slate-800/50 font-semibold" 
+                      ? "text-white bg-slate-800/50 font-semibold"
                       : "text-slate-400 hover:bg-slate-800 hover:text-white"
                   }
+                  ${!open && "justify-center px-0"}
                 `}
               >
                 <div className="flex items-center gap-3">
@@ -441,9 +481,9 @@ export default function DashboardLayout() {
                   {open && <span>Payment</span>}
                 </div>
                 {open && (
-                  <ChevronDown 
-                    size={16} 
-                    className={`transition-transform duration-200 ${paymentOpen ? "rotate-180" : ""}`} 
+                  <ChevronDown
+                    size={16}
+                    className={`transition-transform duration-200 ${paymentOpen ? "rotate-180" : ""}`}
                   />
                 )}
               </button>
@@ -453,7 +493,7 @@ export default function DashboardLayout() {
                   {paymentItems.map((child) => {
                     const ChildIcon = child.icon;
                     const isChildActive = location.pathname === child.path;
-                    
+
                     return (
                       <Link
                         key={child.name}
@@ -478,7 +518,7 @@ export default function DashboardLayout() {
               )}
             </div>
 
-            {/* PARENT 5: HRM */}
+            {/* PARENT: HRM */}
             <div className="space-y-1">
               <button
                 onClick={() => {
@@ -492,9 +532,10 @@ export default function DashboardLayout() {
                   text-sm font-medium
                   ${
                     isHrmActive
-                      ? "text-white bg-slate-800/50 font-semibold" 
+                      ? "text-white bg-slate-800/50 font-semibold"
                       : "text-slate-400 hover:bg-slate-800 hover:text-white"
                   }
+                  ${!open && "justify-center px-0"}
                 `}
               >
                 <div className="flex items-center gap-3">
@@ -502,9 +543,9 @@ export default function DashboardLayout() {
                   {open && <span>HRM</span>}
                 </div>
                 {open && (
-                  <ChevronDown 
-                    size={16} 
-                    className={`transition-transform duration-200 ${hrmOpen ? "rotate-180" : ""}`} 
+                  <ChevronDown
+                    size={16}
+                    className={`transition-transform duration-200 ${hrmOpen ? "rotate-180" : ""}`}
                   />
                 )}
               </button>
@@ -551,33 +592,37 @@ export default function DashboardLayout() {
 
           {/* BOTTOM ACTIONS */}
           <div className="pt-4 border-t border-slate-800 space-y-4">
-             <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setDark(!dark)}
-                className="w-full justify-start text-slate-400 hover:text-white hover:bg-slate-800 px-4"
-              >
-                {dark ? <Sun size={18} className="mr-3" /> : <Moon size={18} className="mr-3" />}
-                {open && (dark ? "Light Mode" : "Dark Mode")}
-              </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setDark(!dark)}
+              className={`w-full text-slate-400 hover:text-white hover:bg-slate-800 px-4 ${
+                open ? "justify-start" : "justify-center px-0"
+              }`}
+            >
+              {dark ? <Sun size={18} className={open ? "mr-3" : ""} /> : <Moon size={18} className={open ? "mr-3" : ""} />}
+              {open && (dark ? "Light Mode" : "Dark Mode")}
+            </Button>
 
-              <Button
-                variant="destructive"
-                className="w-full bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white transition-all rounded-xl py-6"
-                onClick={() => signOut(auth)}
-              >
-                <LogOut size={18} className={open ? "mr-2" : ""} />
-                {open && "Logout"}
-              </Button>
+            <Button
+              variant="destructive"
+              className={`w-full bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white transition-all rounded-xl py-6 ${
+                !open && "justify-center"
+              }`}
+              onClick={() => signOut(auth)}
+            >
+              <LogOut size={18} className={open ? "mr-2" : ""} />
+              {open && "Logout"}
+            </Button>
           </div>
         </aside>
 
-        {/* MAIN CONTENT - ADDED: overflow-y-auto so only this scrolls */}
+        {/* MAIN CONTENT */}
         <main className="flex-1 flex flex-col h-screen overflow-y-auto">
           {/* HEADER */}
           <header className="relative py-8 px-8 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
             <div className="absolute top-0 right-0 w-64 h-full bg-gradient-to-l from-green-500/5 to-transparent pointer-events-none" />
-            
+
             <div className="flex items-center justify-between relative z-10">
               <div className="flex items-center gap-6">
                 <img
