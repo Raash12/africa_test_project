@@ -3,10 +3,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Edit2, Trash2, Plus, Search, Calendar, Package } from "lucide-react";
 import { toast } from "sonner";
-import { db } from "@/lib/firebase"; // 🌟 Hubi in kani yahay wadada saxda ah ee db-gaaga Firebase
+import { db } from "@/lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
 
-// SHADCN COMPONENTS
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,7 +31,7 @@ import CreateGrant from "./CreateGrant";
 
 export default function ListGrant() {
   const { grants = [], donors = [], programs = [], refreshGrants } = useGrants();
-  const [itemsList, setItemsList] = useState([]); // State-ka cusub ee kaydinaya items-ka
+  const [itemsList, setItemsList] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
   const [grantToEdit, setGrantToEdit] = useState(null);
   const [search, setSearch] = useState("");
@@ -45,7 +44,6 @@ export default function ListGrant() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
-  // 🌟 WAXA KELIYA EE LAGU DARAY: Soo aqrinta alaabta (Items) si loogu dhiibo foomka hoose
   useEffect(() => {
     const fetchInventoryItems = async () => {
       try {
@@ -67,7 +65,6 @@ export default function ListGrant() {
     setIsOpen(true);
   };
 
-  // DELETE LOGIC
   const confirmDelete = (id) => {
     setGrantToDelete(id);
     setIsAlertOpen(true);
@@ -117,7 +114,6 @@ export default function ListGrant() {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency || 'USD' }).format(amount);
   };
 
-  // 🌟 HELPER FUNCTION: Waxay itemId-ga u beddelaysa itemName-ka saxda ah ee foomka laga dhex heli karo
   const getItemNameById = (id) => {
     const found = itemsList.find(item => item.id === id);
     return found ? found.itemName : "Unknown Item";
@@ -157,7 +153,7 @@ export default function ListGrant() {
               <tr>
                 <th className="p-4">Grant / Project Funding</th>
                 <th className="p-4">Source Donor</th>
-                <th className="p-4">Allocated Items</th> {/* 🌟 Magaca tiirka waa la cusboonaysiiyay */}
+                <th className="p-4">Allocated Items</th>
                 <th className="p-4">Allocated Budget</th>
                 <th className="p-4">Timeline</th>
                 <th className="p-4 text-center">Actions</th>
@@ -173,8 +169,6 @@ export default function ListGrant() {
                   <td className="p-4">
                     <span className="font-semibold text-[#1e3a8a] bg-blue-50 px-2 py-1 rounded text-xs">{grant.donorName}</span>
                   </td>
-                  
-                  {/* 🌟 WAXA CUSUB: Halkan waxay ku tuseysaa dhamaan Items-ka loo qoondeeyay Grant-kan */}
                   <td className="p-4">
                     {grant.items && grant.items.length > 0 ? (
                       <div className="flex flex-col gap-1 max-w-[200px]">
@@ -192,7 +186,6 @@ export default function ListGrant() {
                       <span className="text-xs text-slate-400 italic">No items allocated</span>
                     )}
                   </td>
-
                   <td className="p-4 font-mono font-bold text-emerald-600">{formatCurrency(grant.amount, grant.currency)}</td>
                   <td className="p-4 text-xs">
                     <div className="flex items-center gap-1 text-slate-600 dark:text-slate-400"><Calendar size={12}/> Start: {grant.startDate}</div>
