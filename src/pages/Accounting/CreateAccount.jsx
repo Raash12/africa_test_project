@@ -13,25 +13,15 @@ import { FolderTree, Hash, FileText, DollarSign, AlertCircle } from "lucide-reac
 import { collection, query, where, getDocs, orderBy, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
-// 1. Comprehensive Dynamic Detail Types Map (Enterprise & NGO Standard)
 const DETAIL_TYPES_MAP = {
   Assets: ["Bank", "Cash on Hand", "Inventory", "Accounts Receivable", "Fixed Assets", "Prepayments"],
   "Accounts Receivable": ["Customer Accounts", "Donor Pledges", "Employee Advances"],
-  Liabilities: [
-    "Accounts Payable", 
-    "Accrued Expenses", 
-    "Payroll Liabilities", 
-    "Tax Payable", 
-    "Loan Payable", 
-    "Deferred Revenue", 
-    "Grants Payable"
-  ],
+  Liabilities: ["Accounts Payable", "Accrued Expenses", "Payroll Liabilities", "Tax Payable", "Loan Payable", "Deferred Revenue", "Grants Payable"],
   Equity: ["Retained Earnings", "Accumulated Fund / Capital", "Restricted Net Assets", "Unrestricted Net Assets"],
   Revenue: ["Grant Revenue", "Donations / Contributions", "Program Service Fees", "Other Income"],
   Expenses: ["Salary & Wages", "Program / Project Costs", "Rent & Utilities", "Transport & Travel", "Administrative Expense", "Operational Cost"]
 };
 
-// 2. Dynamic Input Placeholders matching the selected Category for high-end UX
 const PLACEHOLDERS_MAP = {
   Assets: "E.g., Salaam Bank, Petty Cash, Office Equipment",
   "Accounts Receivable": "E.g., Core Customer Balance, UNHCR Pledge Account",
@@ -50,15 +40,8 @@ const ACCOUNT_CATEGORIES = [
   { value: "Expenses", label: "Expenses (Kharash)", baseCode: 5000, defaultBalance: "Debit" },
 ];
 
-// Kaliya USD ayaa hadda dhumucda u haysa
-const CURRENCIES = [
-  { value: "USD", label: "USD ($)" }
-];
-
-const STATUS_OPTIONS = [
-  { value: "Active", label: "Active" },
-  { value: "Inactive", label: "Inactive" },
-];
+const CURRENCIES = [{ value: "USD", label: "USD ($)" }];
+const STATUS_OPTIONS = [{ value: "Active", label: "Active" }, { value: "Inactive", label: "Inactive" }];
 
 export default function CreateAccount({ isOpen, onClose, refreshAccounts, accountToEdit, createAccount, updateAccount }) {
   const [detailOptions, setDetailOptions] = useState(DETAIL_TYPES_MAP["Assets"]);
@@ -80,19 +63,17 @@ export default function CreateAccount({ isOpen, onClose, refreshAccounts, accoun
   });
 
   useEffect(() => {
-    if (isOpen) {
-      setValidationError("");
-    }
+    if (isOpen) setValidationError("");
   }, [isOpen]);
 
-  // Auto-generate Account Code
+  // HAGAAGIN: Waxaa loo beddelay collection-ka saxda ah 'chart_of_accounts'
   const autoGenerateCode = async (typeValue) => {
     const selectedCategory = ACCOUNT_CATEGORIES.find(t => t.value === typeValue);
     if (!selectedCategory) return;
 
     try {
       const q = query(
-        collection(db, "accounts"),
+        collection(db, "chart_of_accounts"),
         where("accountType", "==", typeValue),
         orderBy("accountCode", "desc"),
         limit(1)
@@ -109,14 +90,12 @@ export default function CreateAccount({ isOpen, onClose, refreshAccounts, accoun
           return;
         }
       }
-      
       setForm(prev => ({ ...prev, accountCode: selectedCategory.baseCode.toString() }));
     } catch (error) {
       setForm(prev => ({ ...prev, accountCode: selectedCategory.baseCode.toString() }));
     }
   };
 
-  // Set initial form states
   useEffect(() => {
     if (accountToEdit) {
       setForm({ ...accountToEdit });
@@ -143,7 +122,6 @@ export default function CreateAccount({ isOpen, onClose, refreshAccounts, accoun
     }
   }, [accountToEdit, isOpen]);
 
-  // Markii Category la beddelo
   const handleCategoryChange = async (e) => {
     const newType = e.target.value;
     const selectedCategory = ACCOUNT_CATEGORIES.find(t => t.value === newType);
@@ -177,7 +155,8 @@ export default function CreateAccount({ isOpen, onClose, refreshAccounts, accoun
 
     if (!accountToEdit) {
       try {
-        const q = query(collection(db, "accounts"), where("accountCode", "==", form.accountCode));
+        // HAGAAGIN: Waxaa loo beddelay 'chart_of_accounts'
+        const q = query(collection(db, "chart_of_accounts"), where("accountCode", "==", form.accountCode));
         const codeCheck = await getDocs(q);
         if (!codeCheck.empty) {
           setValidationError(`GL Code "${form.accountCode}" is already assigned to another account.`);
@@ -222,7 +201,7 @@ export default function CreateAccount({ isOpen, onClose, refreshAccounts, accoun
             {accountToEdit ? "Edit ERP GL Account" : "Create Enterprise GL Account"}
           </DialogTitle>
           <DialogDescription className="sr-only">
-            Nidaam xisaabeed hufan oo heerkiisu sareeyo kana badbaaday isku dhex-yaaca lakabyada UI-ga.
+            Nidaam xisaabeed hufan oo heerkiisu sareeyo.
           </DialogDescription>
         </DialogHeader>
 
@@ -234,8 +213,6 @@ export default function CreateAccount({ isOpen, onClose, refreshAccounts, accoun
         )}
 
         <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-x-4 gap-y-3 pt-3 pb-4">
-          
-          {/* Account Category */}
           <div className="col-span-2 space-y-1 relative z-50">
             <label className="text-xs font-semibold text-slate-500 uppercase">Account Category</label>
             <select
@@ -249,7 +226,6 @@ export default function CreateAccount({ isOpen, onClose, refreshAccounts, accoun
             </select>
           </div>
 
-          {/* Account Code */}
           <div className="col-span-2 sm:col-span-1 space-y-1 relative z-40">
             <label className="text-xs font-semibold text-slate-500 uppercase">Account Code (GL)</label>
             <div className="relative">
@@ -264,7 +240,6 @@ export default function CreateAccount({ isOpen, onClose, refreshAccounts, accoun
             </div>
           </div>
 
-          {/* Account Name */}
           <div className="col-span-2 sm:col-span-1 space-y-1 relative z-40">
             <label className="text-xs font-semibold text-slate-500 uppercase">Account Name</label>
             <div className="relative">
@@ -279,7 +254,6 @@ export default function CreateAccount({ isOpen, onClose, refreshAccounts, accoun
             </div>
           </div>
 
-          {/* Detail Type */}
           <div className="col-span-2 sm:col-span-1 space-y-1 relative z-30">
             <label className="text-xs font-semibold text-slate-500 uppercase">Detail Type</label>
             <select
@@ -293,7 +267,6 @@ export default function CreateAccount({ isOpen, onClose, refreshAccounts, accoun
             </select>
           </div>
 
-          {/* Normal Balance */}
           <div className="col-span-2 sm:col-span-1 space-y-1 relative z-30">
             <label className="text-xs font-semibold text-slate-500 uppercase">Normal Balance</label>
             <div className={`h-10 px-3 rounded-md flex items-center text-sm font-semibold border ${
@@ -305,7 +278,6 @@ export default function CreateAccount({ isOpen, onClose, refreshAccounts, accoun
             </div>
           </div>
 
-          {/* Opening Balance */}
           <div className="col-span-2 sm:col-span-1 space-y-1 relative z-20">
             <label className="text-xs font-semibold text-slate-500 uppercase">Opening Balance (Optional)</label>
             <div className="relative">
@@ -321,7 +293,6 @@ export default function CreateAccount({ isOpen, onClose, refreshAccounts, accoun
             </div>
           </div>
 
-          {/* Currency */}
           <div className="col-span-2 sm:col-span-1 space-y-1 relative z-20">
             <label className="text-xs font-semibold text-slate-500 uppercase">Currency</label>
             <select
@@ -335,7 +306,6 @@ export default function CreateAccount({ isOpen, onClose, refreshAccounts, accoun
             </select>
           </div>
 
-          {/* Status */}
           <div className="col-span-2 sm:col-span-1 space-y-1 relative z-10">
             <label className="text-xs font-semibold text-slate-500 uppercase">Status</label>
             <select
@@ -349,7 +319,6 @@ export default function CreateAccount({ isOpen, onClose, refreshAccounts, accoun
             </select>
           </div>
 
-          {/* Is Group Account Checkbox */}
           <div className="col-span-2 flex items-center space-x-2 py-1 relative z-10">
             <Checkbox
               id="isGroupAccount"
@@ -357,15 +326,11 @@ export default function CreateAccount({ isOpen, onClose, refreshAccounts, accoun
               onCheckedChange={(checked) => setForm({ ...form, isGroupAccount: !!checked })}
               className="border-slate-300 dark:border-slate-700"
             />
-            <label
-              htmlFor="isGroupAccount"
-              className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase cursor-pointer select-none"
-            >
-              Is Parent / Group Account (Sida: Current Liabilities)
+            <label htmlFor="isGroupAccount" className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase cursor-pointer select-none">
+              Is Parent / Group Account
             </label>
           </div>
 
-          {/* Description */}
           <div className="col-span-2 space-y-1 relative z-10">
             <label className="text-xs font-semibold text-slate-500 uppercase">Description / Purpose</label>
             <div className="relative">
@@ -379,22 +344,11 @@ export default function CreateAccount({ isOpen, onClose, refreshAccounts, accoun
             </div>
           </div>
 
-          {/* Action Buttons */}
           <div className="col-span-2 flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 relative z-10">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={handleClose} 
-              disabled={isSubmitting}
-              className="h-9 text-xs border-slate-200 dark:border-slate-700 cursor-pointer"
-            >
+            <Button type="button" variant="outline" onClick={handleClose} disabled={isSubmitting} className="h-9 text-xs border-slate-200 dark:border-slate-700 cursor-pointer">
               Cancel
             </Button>
-            <Button 
-              type="submit" 
-              disabled={isSubmitting}
-              className="h-9 text-xs bg-[#1e3a8a] dark:bg-blue-600 hover:bg-[#172554] dark:hover:bg-blue-700 text-white shadow-md border-none transition-all cursor-pointer flex items-center justify-center"
-            >
+            <Button type="submit" disabled={isSubmitting} className="h-9 text-xs bg-[#1e3a8a] dark:bg-blue-600 hover:bg-[#172554] dark:hover:bg-blue-700 text-white shadow-md border-none transition-all cursor-pointer flex items-center justify-center">
               {isSubmitting ? "Processing..." : accountToEdit ? "Update Account" : "Save Account"}
             </Button>
           </div>
