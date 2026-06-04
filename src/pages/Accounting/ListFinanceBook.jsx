@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/pagination";
 
 // Soo dhoofinta adeegyada Firebase iyo Hook-ga
-import { createFinanceBook, updateFinanceBook, deleteFinanceBook, getFinanceBooks } from "@/services/accounting/FinanceBookService";
+import { createFinanceBook, updateFinanceBook, deleteFinanceBook, getFinanceBooks } from "@/services/accounting/financeBookService";
 import CreateFinanceBook from "./CreateFinanceBook";    
 
 export default function ListFinanceBook() {

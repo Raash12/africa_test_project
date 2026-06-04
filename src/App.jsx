@@ -28,6 +28,7 @@ import ListAdjustment from "./pages/Inventory/listAdjustment";
 import ListFiscalYear from "./pages/Accounting/ListFiscalYear";
 import ListAccounts from "./pages/Accounting/ListAccounts";
 import ListFinanceBook from "./pages/Accounting/ListFinanceBook";
+import ListJournalEntries from "./pages/Accounting/ListJournalEntries"; // 🌟 Journal Entries Module path-kiisa
 
 
 // 🛡️ PROTECTED ROUTE COMPONENT (Wuxuu xalliyaa is-diidmada Brave iyo Chrome)
@@ -130,7 +131,8 @@ export default function App() {
         <Route path="chart-of-accounts" element={<ListAccounts />} />
         {/* ACCOUNTING - FINANCE BOOKS ROUTE */}
         <Route path="finance-books" element={<ListFinanceBook />} />
-        
+        {/* 🌟 ACCOUNTING - JOURNAL ENTRIES ROUTE */ }
+        <Route path="journal-entries" element={<ListJournalEntries />} />
       </Route>
 
 

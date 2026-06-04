@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getFinanceBooks } from "@/services/accounting/FinanceBookService";
+import { getFinanceBooks } from "@/services/accounting/financeBookService";
 
 export default function useFinanceBooks() {
   const [financeBooks, setFinanceBooks] = useState([]);
