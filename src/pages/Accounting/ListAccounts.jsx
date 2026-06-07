@@ -137,7 +137,7 @@ export default function ListAccounts() {
                 <th className="p-4 w-32">GL Code</th>
                 <th className="p-4">Account Name</th>
                 <th className="p-4">Category</th>
-                <th className="p-4 text-right">Balance (Haraga)</th>
+                <th className="p-4 text-right">Balance </th>
                 <th className="p-4 text-center">Currency</th>
                 <th className="p-4">Description</th>
                 <th className="p-4 text-center">Actions</th>

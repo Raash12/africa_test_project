@@ -7,7 +7,7 @@ import { db } from "@/lib/firebase";
 export default function useGrants() {
   const [grants, setGrants] = useState([]);
   const [donors, setDonors] = useState([]);
-  const [programs, setPrograms] = useState([]); // Ku dar barnaamijyada
+  const [programs, setPrograms] = useState([]); 
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -17,13 +17,11 @@ export default function useGrants() {
   const fetchGrantsDonorsAndPrograms = async () => {
     setLoading(true);
     try {
-      // Soo qaado barnaamijyada toos uga soo bixi Firestore
       const programSnapshot = await getDocs(collection(db, "programs"));
       const programsData = programSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
       const [grantsData, donorsData] = await Promise.all([getGrants(), getDonors()]);
       
-      // Khariidad ku samee grants si uu u lahaado xogta donor-ka iyo barnaamijka
       const enrichedGrants = grantsData.map(grant => {
         const matchedDonor = donorsData.find(d => d.id === grant.donorId);
         const matchedProgram = programsData.find(p => p.id === grant.programId);
@@ -47,7 +45,7 @@ export default function useGrants() {
   return {
     grants,
     donors,
-    programs, // Soo celi barnaamijyada
+    programs, 
     loading,
     refreshGrants: fetchGrantsDonorsAndPrograms,
   };

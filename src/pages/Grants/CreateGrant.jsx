@@ -40,7 +40,7 @@ export default function CreateGrant({
     startDate: "",
     endDate: "",
     notes: "",
-    expenseAccountId: "",
+    receivingAccountId: "", // WAA LA BEDDELAY
     items: [{ itemId: "", qty: "" }] 
   });
 
@@ -73,7 +73,8 @@ export default function CreateGrant({
         ...grantToEdit,
         donorId: grantToEdit.donorId ? String(grantToEdit.donorId) : "",
         programId: grantToEdit.programId ? String(grantToEdit.programId) : "",
-        expenseAccountId: grantToEdit.expenseAccountId ? String(grantToEdit.expenseAccountId) : "",
+        // Halkan wuxuu nidaamku si otomaatig ah u aqrinayaa 'receivingAccountId'
+        receivingAccountId: grantToEdit.receivingAccountId ? String(grantToEdit.receivingAccountId) : "",
         items: grantToEdit.items && grantToEdit.items.length > 0 
           ? grantToEdit.items.map(it => ({ itemId: String(it.itemId || it.id || ""), qty: String(it.qty || "") }))
           : [{ itemId: "", qty: "" }]
@@ -88,7 +89,7 @@ export default function CreateGrant({
         startDate: "",
         endDate: "",
         notes: "",
-        expenseAccountId: "",
+        receivingAccountId: "", // WAA LA BEDDELAY
         items: [{ itemId: "", qty: "" }] 
       });
     }
@@ -146,11 +147,16 @@ export default function CreateGrant({
             </Select>
           </div>
 
-          {/* Expense Account */}
+          {/* Receiving Account (Laguu beddelay) */}
           <div className="col-span-2 space-y-1">
-            <label className="text-xs font-semibold text-slate-500 uppercase">Expense Account</label>
-            <Select value={form.expenseAccountId} onValueChange={(v) => setForm({...form, expenseAccountId: v})}>
-              <SelectTrigger className="h-10 text-sm"><div className="flex items-center gap-2"><BookOpen size={14} className="text-slate-400"/><SelectValue placeholder="Select Account..." /></div></SelectTrigger>
+            <label className="text-xs font-semibold text-slate-500 uppercase">Receiving Account (Akoonka Lacagta lagu Shubayo)</label>
+            <Select value={form.receivingAccountId} onValueChange={(v) => setForm({...form, receivingAccountId: v})}>
+              <SelectTrigger className="h-10 text-sm">
+                <div className="flex items-center gap-2">
+                  <BookOpen size={14} className="text-slate-400"/>
+                  <SelectValue placeholder="Select Account..." />
+                </div>
+              </SelectTrigger>
               <SelectContent>
                 {accounts.map(acc => <SelectItem key={acc.id} value={String(acc.id)}>[{acc.accountCode}] {acc.accountName}</SelectItem>)}
               </SelectContent>
