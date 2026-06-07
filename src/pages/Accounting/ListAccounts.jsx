@@ -137,6 +137,8 @@ export default function ListAccounts() {
                 <th className="p-4 w-32">GL Code</th>
                 <th className="p-4">Account Name</th>
                 <th className="p-4">Category</th>
+                <th className="p-4 text-right">Balance (Haraga)</th>
+                <th className="p-4 text-center">Currency</th>
                 <th className="p-4">Description</th>
                 <th className="p-4 text-center">Actions</th>
               </tr>
@@ -161,6 +163,15 @@ export default function ListAccounts() {
                       {account.accountType}
                     </span>
                   </td>
+                  {/* COLS FOR BALANCE AND CURRENCY */}
+                  <td className="p-4 text-right font-mono font-bold text-slate-900 dark:text-slate-100">
+                    {typeof account.openingBalance === "number"
+                      ? account.openingBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                      : "0.00"}
+                  </td>
+                  <td className="p-4 text-center font-semibold text-xs text-slate-600 dark:text-slate-400">
+                    {account.currency || "USD"}
+                  </td>
                   <td className="p-4 text-xs text-slate-500 max-w-xs truncate">{account.description || "-"}</td>
                   <td className="p-4 text-center">
                     <div className="flex justify-center gap-2">
@@ -172,7 +183,7 @@ export default function ListAccounts() {
               ))}
               {filteredAccounts.length === 0 && (
                 <tr>
-                  <td colSpan="5" className="p-8 text-center text-slate-400">No ledger accounts found. Create your first GL Account.</td>
+                  <td colSpan="7" className="p-8 text-center text-slate-400">No ledger accounts found. Create your first GL Account.</td>
                 </tr>
               )}
             </tbody>

@@ -66,7 +66,6 @@ export default function CreateAccount({ isOpen, onClose, refreshAccounts, accoun
     if (isOpen) setValidationError("");
   }, [isOpen]);
 
-  // HAGAAGIN: Waxaa loo beddelay collection-ka saxda ah 'chart_of_accounts'
   const autoGenerateCode = async (typeValue) => {
     const selectedCategory = ACCOUNT_CATEGORIES.find(t => t.value === typeValue);
     if (!selectedCategory) return;
@@ -98,7 +97,10 @@ export default function CreateAccount({ isOpen, onClose, refreshAccounts, accoun
 
   useEffect(() => {
     if (accountToEdit) {
-      setForm({ ...accountToEdit });
+      setForm({ 
+        ...accountToEdit,
+        openingBalance: accountToEdit.openingBalance !== undefined && accountToEdit.openingBalance !== null ? accountToEdit.openingBalance.toString() : ""
+      });
       setDetailOptions(DETAIL_TYPES_MAP[accountToEdit.accountType] || []);
       setNamePlaceholder(PLACEHOLDERS_MAP[accountToEdit.accountType] || "E.g., Account Name");
     } else {
@@ -155,7 +157,6 @@ export default function CreateAccount({ isOpen, onClose, refreshAccounts, accoun
 
     if (!accountToEdit) {
       try {
-        // HAGAAGIN: Waxaa loo beddelay 'chart_of_accounts'
         const q = query(collection(db, "chart_of_accounts"), where("accountCode", "==", form.accountCode));
         const codeCheck = await getDocs(q);
         if (!codeCheck.empty) {
