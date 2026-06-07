@@ -40,9 +40,6 @@ const ACCOUNT_CATEGORIES = [
   { value: "Expenses", label: "Expenses (Kharash)", baseCode: 5000, defaultBalance: "Debit" },
 ];
 
-const CURRENCIES = [{ value: "USD", label: "USD ($)" }];
-const STATUS_OPTIONS = [{ value: "Active", label: "Active" }, { value: "Inactive", label: "Inactive" }];
-
 export default function CreateAccount({ isOpen, onClose, refreshAccounts, accountToEdit, createAccount, updateAccount }) {
   const [detailOptions, setDetailOptions] = useState(DETAIL_TYPES_MAP["Assets"]);
   const [namePlaceholder, setNamePlaceholder] = useState(PLACEHOLDERS_MAP["Assets"]);
@@ -169,9 +166,12 @@ export default function CreateAccount({ isOpen, onClose, refreshAccounts, accoun
       }
     }
 
+    const openingValue = form.openingBalance ? parseFloat(form.openingBalance) : 0;
     const dataToSubmit = {
       ...form,
-      openingBalance: form.openingBalance ? parseFloat(form.openingBalance) : 0,
+      openingBalance: openingValue,
+      // Hubi in marka la abuurayo ama la baddalayo uu balance-kuna raaco
+      balance: accountToEdit?.balance !== undefined ? accountToEdit.balance : openingValue
     };
 
     try {
@@ -201,9 +201,7 @@ export default function CreateAccount({ isOpen, onClose, refreshAccounts, accoun
           <DialogTitle className="text-[#1e3a8a] dark:text-blue-400 text-base font-bold uppercase tracking-wider">
             {accountToEdit ? "Edit ERP GL Account" : "Create Enterprise GL Account"}
           </DialogTitle>
-          <DialogDescription className="sr-only">
-            Nidaam xisaabeed hufan oo heerkiisu sareeyo.
-          </DialogDescription>
+          <DialogDescription className="sr-only">Nidaam xisaabeed hufan.</DialogDescription>
         </DialogHeader>
 
         {validationError && (
@@ -214,10 +212,10 @@ export default function CreateAccount({ isOpen, onClose, refreshAccounts, accoun
         )}
 
         <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-x-4 gap-y-3 pt-3 pb-4">
-          <div className="col-span-2 space-y-1 relative z-50">
+          <div className="col-span-2 space-y-1">
             <label className="text-xs font-semibold text-slate-500 uppercase">Account Category</label>
             <select
-              className="w-full h-10 px-3 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-md focus:ring-2 focus:ring-blue-600 outline-none cursor-pointer appearance-none relative"
+              className="w-full h-10 px-3 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-md focus:ring-2 focus:ring-blue-600 outline-none cursor-pointer"
               value={form.accountType}
               onChange={handleCategoryChange}
             >
@@ -227,13 +225,13 @@ export default function CreateAccount({ isOpen, onClose, refreshAccounts, accoun
             </select>
           </div>
 
-          <div className="col-span-2 sm:col-span-1 space-y-1 relative z-40">
+          <div className="col-span-2 sm:col-span-1 space-y-1">
             <label className="text-xs font-semibold text-slate-500 uppercase">Account Code (GL)</label>
             <div className="relative">
               <Hash size={14} className="absolute left-3 top-3 text-slate-400" />
               <Input
                 placeholder="E.g., 1000"
-                className="h-10 pl-9 text-sm bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-600 outline-none font-mono"
+                className="h-10 pl-9 text-sm font-mono"
                 value={form.accountCode}
                 onChange={(e) => setForm({ ...form, accountCode: e.target.value })}
                 required
@@ -241,13 +239,13 @@ export default function CreateAccount({ isOpen, onClose, refreshAccounts, accoun
             </div>
           </div>
 
-          <div className="col-span-2 sm:col-span-1 space-y-1 relative z-40">
+          <div className="col-span-2 sm:col-span-1 space-y-1">
             <label className="text-xs font-semibold text-slate-500 uppercase">Account Name</label>
             <div className="relative">
               <FolderTree size={14} className="absolute left-3 top-3 text-slate-400" />
               <Input
                 placeholder={namePlaceholder}
-                className="h-10 pl-9 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-600 outline-none"
+                className="h-10 pl-9 text-sm"
                 value={form.accountName}
                 onChange={(e) => setForm({ ...form, accountName: e.target.value })}
                 required
@@ -255,10 +253,10 @@ export default function CreateAccount({ isOpen, onClose, refreshAccounts, accoun
             </div>
           </div>
 
-          <div className="col-span-2 sm:col-span-1 space-y-1 relative z-30">
+          <div className="col-span-2 sm:col-span-1 space-y-1">
             <label className="text-xs font-semibold text-slate-500 uppercase">Detail Type</label>
             <select
-              className="w-full h-10 px-3 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-md focus:ring-2 focus:ring-blue-600 outline-none cursor-pointer appearance-none relative"
+              className="w-full h-10 px-3 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-md focus:ring-2 focus:ring-blue-600 outline-none cursor-pointer"
               value={form.detailType}
               onChange={(e) => setForm({ ...form, detailType: e.target.value })}
             >
@@ -268,7 +266,7 @@ export default function CreateAccount({ isOpen, onClose, refreshAccounts, accoun
             </select>
           </div>
 
-          <div className="col-span-2 sm:col-span-1 space-y-1 relative z-30">
+          <div className="col-span-2 sm:col-span-1 space-y-1">
             <label className="text-xs font-semibold text-slate-500 uppercase">Normal Balance</label>
             <div className={`h-10 px-3 rounded-md flex items-center text-sm font-semibold border ${
               form.normalBalance === "Debit" 
@@ -279,7 +277,7 @@ export default function CreateAccount({ isOpen, onClose, refreshAccounts, accoun
             </div>
           </div>
 
-          <div className="col-span-2 sm:col-span-1 space-y-1 relative z-20">
+          <div className="col-span-2 sm:col-span-1 space-y-1">
             <label className="text-xs font-semibold text-slate-500 uppercase">Opening Balance (Optional)</label>
             <div className="relative">
               <DollarSign size={14} className="absolute left-3 top-3 text-slate-400" />
@@ -287,69 +285,18 @@ export default function CreateAccount({ isOpen, onClose, refreshAccounts, accoun
                 type="number"
                 step="any"
                 placeholder="0.00"
-                className="h-10 pl-9 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-600 outline-none"
+                className="h-10 pl-9 text-sm"
                 value={form.openingBalance}
                 onChange={(e) => setForm({ ...form, openingBalance: e.target.value })}
               />
             </div>
           </div>
 
-          <div className="col-span-2 sm:col-span-1 space-y-1 relative z-20">
-            <label className="text-xs font-semibold text-slate-500 uppercase">Currency</label>
-            <select
-              className="w-full h-10 px-3 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-md focus:ring-2 focus:ring-blue-600 outline-none cursor-pointer appearance-none relative"
-              value={form.currency}
-              onChange={(e) => setForm({ ...form, currency: e.target.value })}
-            >
-              {CURRENCIES.map((cur) => (
-                <option key={cur.value} value={cur.value}>{cur.label}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="col-span-2 sm:col-span-1 space-y-1 relative z-10">
-            <label className="text-xs font-semibold text-slate-500 uppercase">Status</label>
-            <select
-              className="w-full h-10 px-3 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-md focus:ring-2 focus:ring-blue-600 outline-none cursor-pointer appearance-none relative"
-              value={form.status}
-              onChange={(e) => setForm({ ...form, status: e.target.value })}
-            >
-              {STATUS_OPTIONS.map((st) => (
-                <option key={st.value} value={st.value}>{st.label}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="col-span-2 flex items-center space-x-2 py-1 relative z-10">
-            <Checkbox
-              id="isGroupAccount"
-              checked={form.isGroupAccount}
-              onCheckedChange={(checked) => setForm({ ...form, isGroupAccount: !!checked })}
-              className="border-slate-300 dark:border-slate-700"
-            />
-            <label htmlFor="isGroupAccount" className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase cursor-pointer select-none">
-              Is Parent / Group Account
-            </label>
-          </div>
-
-          <div className="col-span-2 space-y-1 relative z-10">
-            <label className="text-xs font-semibold text-slate-500 uppercase">Description / Purpose</label>
-            <div className="relative">
-              <FileText size={16} className="absolute left-3 top-3 text-slate-400" />
-              <Input
-                placeholder="E.g., Designated account for long-term operational liabilities"
-                className="h-10 pl-10 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-600 outline-none"
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="col-span-2 flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 relative z-10">
-            <Button type="button" variant="outline" onClick={handleClose} disabled={isSubmitting} className="h-9 text-xs border-slate-200 dark:border-slate-700 cursor-pointer">
+          <div className="col-span-2 flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+            <Button type="button" variant="outline" onClick={handleClose} disabled={isSubmitting} className="h-9 text-xs">
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting} className="h-9 text-xs bg-[#1e3a8a] dark:bg-blue-600 hover:bg-[#172554] dark:hover:bg-blue-700 text-white shadow-md border-none transition-all cursor-pointer flex items-center justify-center">
+            <Button type="submit" disabled={isSubmitting} className="h-9 text-xs bg-[#1e3a8a] dark:bg-blue-600 text-white shadow-md">
               {isSubmitting ? "Processing..." : accountToEdit ? "Update Account" : "Save Account"}
             </Button>
           </div>

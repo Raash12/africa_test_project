@@ -1,4 +1,3 @@
-// services/payment/paymentEntryService.js
 import { db } from "@/lib/firebase";
 import { 
   collection, 
@@ -10,9 +9,8 @@ import {
   orderBy 
 } from "firebase/firestore";
 
-const COLLECTION_NAME = "paymentEntries";
+const COLLECTION_NAME = "payment_entries"; // HAGAAGIN: Loo waafajiyey magaca saxsan
 
-// 1. Soo dhuuq dhamaan lacag bixinnada la keydiyey
 export const getPaymentEntries = async () => {
   try {
     const q = query(collection(db, COLLECTION_NAME), orderBy("createdAt", "desc"));
@@ -27,18 +25,15 @@ export const getPaymentEntries = async () => {
   }
 };
 
-// 2. Keydi Payment Entry cusub + Auto Update Invoice Status
 export const createPaymentEntry = async (paymentData) => {
   try {
-    // A. Keydi xogta lacag bixinta ee cusub
     const finalPaymentData = {
       ...paymentData,
       createdAt: new Date().toISOString()
     };
     const docRef = await addDoc(collection(db, COLLECTION_NAME), finalPaymentData);
 
-    // B. Si toos ah (Auto) u cusboonaysii status-ka Purchase Invoice-ka uu ku xiran yahay
-    const invoiceRef = doc(db, "purchaseInvoices", paymentData.invoiceId);
+    const invoiceRef = doc(db, "purchase_invoices", paymentData.invoiceId);
     await updateDoc(invoiceRef, {
       status: "PAID",
       updatedAt: new Date().toISOString()

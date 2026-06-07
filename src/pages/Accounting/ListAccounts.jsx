@@ -94,6 +94,7 @@ export default function ListAccounts() {
   const getTypeBadge = (type) => {
     const styles = {
       Assets: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-200",
+      "Accounts Receivable": "bg-cyan-50 text-cyan-700 dark:bg-cyan-950/30 dark:text-cyan-400 border border-cyan-200",
       Liabilities: "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 border border-amber-200",
       Equity: "bg-purple-50 text-purple-700 dark:bg-purple-950/30 dark:text-purple-400 border border-purple-200",
       Revenue: "bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 border border-blue-200",
@@ -137,7 +138,7 @@ export default function ListAccounts() {
                 <th className="p-4 w-32">GL Code</th>
                 <th className="p-4">Account Name</th>
                 <th className="p-4">Category</th>
-                <th className="p-4 text-right">Balance </th>
+                <th className="p-4 text-right">Balance</th>
                 <th className="p-4 text-center">Currency</th>
                 <th className="p-4">Description</th>
                 <th className="p-4 text-center">Actions</th>
@@ -163,10 +164,10 @@ export default function ListAccounts() {
                       {account.accountType}
                     </span>
                   </td>
-                  {/* COLS FOR BALANCE AND CURRENCY */}
+                  {/* CUSBOONAYSIIN: Halkan waxaa laga dhigay account.balance sxb */}
                   <td className="p-4 text-right font-mono font-bold text-slate-900 dark:text-slate-100">
-                    {typeof account.openingBalance === "number"
-                      ? account.openingBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    {typeof account.balance === "number"
+                      ? account.balance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                       : "0.00"}
                   </td>
                   <td className="p-4 text-center font-semibold text-xs text-slate-600 dark:text-slate-400">

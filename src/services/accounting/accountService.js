@@ -2,14 +2,18 @@ import { db } from "@/lib/firebase";
 import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, orderBy } from "firebase/firestore";
 
 const accountCollection = collection(db, "chart_of_accounts");
-const grantsCollection = collection(db, "grants"); // Collection-ka Grants-ka
+const grantsCollection = collection(db, "grants"); 
 
-export const createAccount = (data) => addDoc(accountCollection, {
-  ...data,
-  createdAt: new Date()
-});
+export const createAccount = (data) => {
+  // Marka akoon cusub la abuurayo, balance-kiisa ugu horeeya wuxuu la mid yahay openingBalance
+  const opening = data.openingBalance ? parseFloat(data.openingBalance) : 0;
+  return addDoc(accountCollection, {
+    ...data,
+    balance: opening, // State-ka rasmiga ah ee isbeddelaya
+    createdAt: new Date()
+  });
+};
 
-// CODAYN: Funksion-kan wuxuu isku darayaa Opening Balance + Lacagaha Grants-ka ee akoonka ku dhacay
 export const getAccounts = async () => {
   // 1. Soo aqri dhammaan akoonada (Chart of Accounts)
   const q = query(accountCollection, orderBy("accountCode", "asc"));
@@ -20,19 +24,22 @@ export const getAccounts = async () => {
   const grantsSnapshot = await getDocs(grantsCollection);
   const grantsList = grantsSnapshot.docs.map(doc => doc.data());
 
-  // 3. Akoon walba u xisaabi Haraga guud (Opening Balance + Grants Amount)
+  // 3. Xisaabi Haraga dhabta ah ee meesha yaal
   return accountsList.map(account => {
-    const baseBalance = account.openingBalance ? parseFloat(account.openingBalance) : 0;
+    // Haddii balance uu jiro (foomka payment-ku wax ka baddalay), ka bilow halkan, haddii kale openingBalance
+    const baseBalance = account.balance !== undefined 
+      ? parseFloat(account.balance) 
+      : (account.openingBalance ? parseFloat(account.openingBalance) : 0);
     
-    // HAGAAGIN: Waxaa hadda la isticmaalayaa 'receivingAccountId' si loogu xiro Chart of Accounts
+    // Wixii grants ah ee ku dhacay akoonkaas
     const totalGrantsAmount = grantsList
-      .filter(grant => grant.receivingAccountId === account.id) // Halkan waa la toosiyey sxb
+      .filter(grant => grant.receivingAccountId === account.id) 
       .reduce((sum, grant) => sum + (grant.amount ? parseFloat(grant.amount) : 0), 0);
 
     return {
       ...account,
-      // Haraga Cusub = Opening Balance + Wixii Grants ah ee ku dhacay akoonkaas
-      openingBalance: baseBalance + totalGrantsAmount
+      // Halkan waxaa loogu yeerayaa balance si uu koodhka kale u akhriyo
+      balance: baseBalance + totalGrantsAmount
     };
   });
 };
