@@ -1,25 +1,16 @@
 import { useState, useMemo } from "react";
-import { Search, Calendar, Building2, Wallet } from "lucide-react";
+import { Search, Building2, Wallet } from "lucide-react";
 import useJournalEntries from "@/hooks/useJournalEntries";
-import useAccounts from "@/hooks/useAccounts"; // Using your existing hook
-
-// Fiscal Year Logic (August 1st Start)
-const calculateFiscalYear = (dateString) => {
-  if (!dateString) return new Date().getFullYear();
-  const d = new Date(dateString);
-  const month = d.getMonth();
-  const year = d.getFullYear();
-  return month >= 7 ? year + 1 : year;
-};
+import useAccounts from "@/hooks/useAccounts";
+import { downloadPDF, downloadExcel } from "@/utils/ExportUtils";
 
 export default function ListGeneralLedger() {
   const { entries, loading: entriesLoading } = useJournalEntries();
-  const { accounts, loading: accountsLoading } = useAccounts(); // Your existing hook
+  const { accounts, loading: accountsLoading } = useAccounts();
   
   const [search, setSearch] = useState("");
   const [selectedAccountId, setSelectedAccountId] = useState("all");
 
-  // 1. FILTERING ENGINE
   const filteredEntries = useMemo(() => {
     if (!entries) return [];
     return entries.filter((e) => {
@@ -30,7 +21,6 @@ export default function ListGeneralLedger() {
     }).sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [entries, search, selectedAccountId]);
 
-  // 2. GET SELECTED ACCOUNT DATA (For Opening Balance)
   const selectedAccountData = useMemo(() => {
     return accounts.find(acc => acc.id === selectedAccountId);
   }, [accounts, selectedAccountId]);
@@ -38,15 +28,30 @@ export default function ListGeneralLedger() {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6 bg-slate-50 min-h-screen">
       
-      {/* HEADER */}
+      {/* 1. HEADER SECTION */}
       <div className="flex justify-between items-end">
         <div>
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight uppercase">General Ledger</h1>
-          <p className="text-slate-500 font-medium">Verified Double-Entry Audit Trail</p>
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">General Ledger</h1>
+        </div>
+        
+        {/* PREMIUM EXPORT BUTTONS */}
+        <div className="flex gap-2">
+          <button 
+            onClick={() => downloadExcel(filteredEntries, "General_Ledger", selectedAccountData?.openingBalance)}
+            className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold text-xs hover:bg-emerald-700 transition"
+          >
+            Export Excel
+          </button>
+          <button 
+            onClick={() => downloadPDF(filteredEntries, "General Ledger Report", selectedAccountData?.openingBalance, "AIF ERP Solutions")}
+            className="px-4 py-2 bg-blue-900 text-white rounded-lg font-bold text-xs hover:bg-blue-950 transition"
+          >
+            Download PDF
+          </button>
         </div>
       </div>
 
-      {/* FILTER BAR - PREMIUM DESIGN */}
+      {/* 2. FILTER BAR */}
       <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap gap-4 items-center">
         <div className="relative flex-grow min-w-[300px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -72,7 +77,7 @@ export default function ListGeneralLedger() {
         </div>
       </div>
 
-      {/* SUMMARY CARD (Opening Balance) */}
+      {/* 3. SUMMARY CARD */}
       {selectedAccountId !== "all" && selectedAccountData && (
         <div className="bg-gradient-to-r from-blue-700 to-indigo-800 rounded-2xl p-6 text-white shadow-lg flex justify-between items-center">
           <div>
@@ -88,7 +93,7 @@ export default function ListGeneralLedger() {
         </div>
       )}
 
-      {/* TABLE */}
+      {/* 4. TABLE */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-slate-50">
@@ -116,7 +121,6 @@ export default function ListGeneralLedger() {
                   <div className="flex flex-col gap-1">
                     {entry.entries?.map((ent, i) => (
                       <span key={i} className="text-[11px] text-slate-600 font-medium">
-                        {/* LOOKUP NAME FROM ACCOUNTS LIST */}
                         {accounts.find(a => a.id === ent.accountId)?.accountName || ent.accountName || "Unknown Account"}
                       </span>
                     ))}
