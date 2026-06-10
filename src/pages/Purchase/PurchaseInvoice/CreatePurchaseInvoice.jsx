@@ -15,10 +15,14 @@ import { toast } from "sonner";
 import { db } from "@/lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
 import usePurchaseOrders from "@/hooks/usePurchaseOrders"; 
+// Waxaan soo dhoofsaday hook-gii Invoice-yada si loo hubiyo kuwa la isticmaalay
+import usePurchaseInvoices from "@/hooks/usePurchaseInvoices"; 
 import { createPurchaseInvoice, updatePurchaseInvoice } from "@/services/purchase/purchaseInvoiceService";
 
 export default function CreatePurchaseInvoice({ isOpen, onClose, refreshPIs, piToEdit }) {
   const { purchaseOrders = [] } = usePurchaseOrders();
+  // Liiska invoice-yada halkan ayaan ka helaynaa sxb
+  const { purchaseInvoices = [] } = usePurchaseInvoices(); 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // DB Collections Local States
@@ -26,12 +30,12 @@ export default function CreatePurchaseInvoice({ isOpen, onClose, refreshPIs, piT
 
   // Form States
   const [selectedPoId, setSelectedPoId] = useState("");
-  const [supplierId, setSupplierId] = useState(""); // UI-ka waa laga qariyaa, gadaal ayuu ka buuxsamayaa
+  const [supplierId, setSupplierId] = useState(""); 
   const [dueDate, setDueDate] = useState("");
   const [totalAmount, setTotalAmount] = useState(0);
   const [poItems, setPoItems] = useState([]); 
 
-  // Soo dhuuq Suppliers oo kaliya (Program waa laga saaray)
+  // Soo dhuuq Suppliers
   useEffect(() => {
     const fetchDropdownData = async () => {
       try {
@@ -44,7 +48,7 @@ export default function CreatePurchaseInvoice({ isOpen, onClose, refreshPIs, piT
     if (isOpen) fetchDropdownData();
   }, [isOpen]);
 
-  // Marka PO la doorto (Supplier-ka iyo lacagta auto-fill ayay noqonayaan)
+  // Marka PO la doorto (Supplier-ka iyo lacagta auto-fill)
   useEffect(() => {
     if (selectedPoId && !piToEdit) {
       const matchedPo = purchaseOrders.find(po => po.id === selectedPoId);
@@ -79,7 +83,6 @@ export default function CreatePurchaseInvoice({ isOpen, onClose, refreshPIs, piT
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // Shardiga Validation-ka waa laga saaray Program
     if (!selectedPoId || !supplierId || !dueDate) {
       toast.error("Fadlan buuxi dhammaan xogta muhiimka ah (PO & Due Date).");
       return;
@@ -118,7 +121,6 @@ export default function CreatePurchaseInvoice({ isOpen, onClose, refreshPIs, piT
     }
   };
 
-  // Raadi magaca supplier-ka hadda daahsoon si loo tuso isticmaalaha qaab akhris oo keliya ah
   const currentSupplierName = suppliers.find(s => s.id === supplierId)?.name;
 
   return (
@@ -153,12 +155,24 @@ export default function CreatePurchaseInvoice({ isOpen, onClose, refreshPIs, piT
                   </SelectItem>
                 )}
                 {purchaseOrders
-                  .filter(po => po.status === "APPROVED" && po.id !== piToEdit?.poId)
+                  .filter(po => {
+                    // 1. Waa in ay APPROVED tahay
+                    const isApproved = po.status === "APPROVED";
+                    
+                    // 2. Haddii lagu jiro Edit Mode, PO-da hadda furan ha u diidin
+                    if (piToEdit && po.id === piToEdit.poId) return false; 
+
+                    // 3. SHARDI: Hubi in PO-daan hadda ka hor invoice loo sameeyay iyo in kale
+                    const alreadyInvoiced = purchaseInvoices.some(invoice => invoice.poId === po.id);
+
+                    // Kaliya soo saar kuwa APPROVED ah oo aan weli invoice loo samayn
+                    return isApproved && !alreadyInvoiced;
+                  })
                   .map(po => (
                     <SelectItem key={po.id} value={po.id} className="text-xs">
                       {po.poNumber} - ${po.totalAmount?.toLocaleString()}
                     </SelectItem>
-                ))}
+                  ))}
               </SelectContent>
             </Select>
           </div>
