@@ -29,7 +29,8 @@ import ListFiscalYear from "./pages/Accounting/ListFiscalYear";
 import ListAccounts from "./pages/Accounting/ListAccounts";
 import ListFinanceBook from "./pages/Accounting/ListFinanceBook";
 import ListJournalEntries from "./pages/Accounting/ListJournalEntries"; // 🌟 Journal Entries Module path-kiisa
-
+// Corrected spelling
+import ListGeneralLedger from "./pages/Accounting/ListGeneralLedger";
 
 // 🛡️ PROTECTED ROUTE COMPONENT (Wuxuu xalliyaa is-diidmada Brave iyo Chrome)
 function ProtectedRoute({ children }) {
@@ -133,6 +134,8 @@ export default function App() {
         <Route path="finance-books" element={<ListFinanceBook />} />
         {/* 🌟 ACCOUNTING - JOURNAL ENTRIES ROUTE */ }
         <Route path="journal-entries" element={<ListJournalEntries />} />
+        {/* 🌟 ACCOUNTING - GENERAL LEDGER ROUTE */ }
+        <Route path="general-ledger" element={<ListGeneralLedger />} />
       </Route>
 
 

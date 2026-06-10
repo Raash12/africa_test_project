@@ -82,6 +82,7 @@ export default function DashboardLayout() {
     { name: "Fiscal Years", path: "/fiscal-years", icon: CalendarDays },
     { name: "Suppliers", path: "/suppliers", icon: Truck },
     { name: "Journal Entries", path: "/journal-entries", icon: FileText },
+    {name : "general ledger", path: "/general-ledger", icon: Receipt}
   ];
 
   const purchaseItems = [

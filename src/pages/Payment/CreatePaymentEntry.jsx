@@ -80,7 +80,7 @@ export default function CreatePaymentEntry({ isOpen, onClose, refreshPayments })
   }, [selectedInvoiceId, unpaidInvoices]);
 
   // 3. FULINTA DOUBLE-ENTRY TRANSACTION (MARKA BADHANKA LA GUJISO)
-  const handleSubmit = async (e) => {
+const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedInvoiceId || !fromAccountId || !expenseAccountId || !paymentDate || !amountPaid || !paymentMethod) {
       toast.error("Fadlan buuxi dhammaan meelaha muhiimka ah sxb.");
@@ -90,12 +90,10 @@ export default function CreatePaymentEntry({ isOpen, onClose, refreshPayments })
     const matchedInvoice = unpaidInvoices.find(inv => inv.id === selectedInvoiceId);
     if (!matchedInvoice) return;
 
-    // Nadiifi nambarka foomka ka yimid (ka saar wax kasta oo string ah)
     const parseAmount = parseFloat(String(amountPaid).replace(/[^0-9.-]/g, ""));
     setIsSubmitting(true);
 
     try {
-      // Isticmaal runTransaction si haddii hal dhinac xisaabtu ka haglado uu Firestore oo dhan u baajiyo (Rollback)
       await runTransaction(db, async (transaction) => {
         const fromAccountRef = doc(db, "chart_of_accounts", fromAccountId);
         const expenseAccountRef = doc(db, "chart_of_accounts", expenseAccountId);
@@ -103,32 +101,48 @@ export default function CreatePaymentEntry({ isOpen, onClose, refreshPayments })
         const fromAccSnap = await transaction.get(fromAccountRef);
         const expenseAccSnap = await transaction.get(expenseAccountRef);
 
-        if (!fromAccSnap.exists()) throw new Error("Asset account-ka lacagta laga bixinayo lama helin!");
-        if (!expenseAccSnap.exists()) throw new Error("Expense account-ka la dooray lama helin!");
+        if (!fromAccSnap.exists()) throw new Error("Asset account-ka lama helin!");
+        if (!expenseAccSnap.exists()) throw new Error("Expense account-ka lama helin!");
 
-        // Nadiifi balance-yada hadda jira oo ka saar Comma-da (E.g. "4,100.00" -> 4100.00)
-        const rawFromBalance = fromAccSnap.data().balance !== undefined ? String(fromAccSnap.data().balance) : "0";
-        const currentFromBalance = parseFloat(rawFromBalance.replace(/[^0-9.-]/g, "")) || 0;
+        const currentFromBalance = parseFloat(fromAccSnap.data().balance || 0);
+        const currentExpenseBalance = parseFloat(expenseAccSnap.data().balance || 0);
 
-        const rawExpenseBalance = expenseAccSnap.data().balance !== undefined ? String(expenseAccSnap.data().balance) : "0";
-        const currentExpenseBalance = parseFloat(rawExpenseBalance.replace(/[^0-9.-]/g, "")) || 0;
+        // Perform Account Updates
+        transaction.update(fromAccountRef, { balance: Number((currentFromBalance - parseAmount).toFixed(2)) });
+        transaction.update(expenseAccountRef, { balance: Number((currentExpenseBalance + parseAmount).toFixed(2)) });
 
-        // Double Entry Logic
-        const newFromBalance = currentFromBalance - parseAmount; // Credit Asset (Ka jar Salaam Bank)
-        const newExpenseBalance = currentExpenseBalance + parseAmount; // Debit Expense (Ku dar Rent)
+        // Add Journal Entry
+        const journalRef = doc(collection(db, "journal_entries"));
+        transaction.set(journalRef, {
+          date: paymentDate,
+          fiscalYear: new Date(paymentDate).getFullYear().toString(),
+          description: `Payment for Invoice: ${matchedInvoice.invoiceNumber} to ${matchedInvoice.supplierName}`,
+          entries: [
+            { 
+              accountId: expenseAccountId, 
+              accountName: expenseAccSnap.data().accountName, // Fixed variable name here
+              debit: parseAmount, 
+              credit: 0 
+            },
+            { 
+              accountId: fromAccountId, 
+              accountName: fromAccSnap.data().accountName, // Fixed variable name here
+              debit: 0, 
+              credit: parseAmount 
+            }
+          ],
+          createdAt: new Date().toISOString()
+        });
 
-        // Ku shub Firestore balance-yada cusub iyagoo Number nadiif ah ah (laba cashriyo leh .toFixed)
-        transaction.update(fromAccountRef, { balance: Number(newFromBalance.toFixed(2)) });
-        transaction.update(expenseAccountRef, { balance: Number(newExpenseBalance.toFixed(2)) });
-
-        // Invoice Status ka dhig "PAID"
+        // Update Invoice
         const invoiceRef = doc(db, "purchase_invoices", selectedInvoiceId);
         transaction.update(invoiceRef, { status: "PAID" });
 
-        // Keydi rasiidka rasmiga ah ee payment_entries
+        // Keydi rasiidka rasmiga ah
         const paymentRef = doc(collection(db, "payment_entries"));
         transaction.set(paymentRef, {
           invoiceId: selectedInvoiceId,
+          journalEntryId: journalRef.id,
           invoiceNumber: matchedInvoice.invoiceNumber,
           supplierName: matchedInvoice.supplierName || "N/A",
           fromAccountId,
@@ -141,7 +155,7 @@ export default function CreatePaymentEntry({ isOpen, onClose, refreshPayments })
         });
       });
 
-      toast.success("Double-Entry-gii waa uu guulaystay sxb! Labada akoonba waa la cusboonaysiiyey.");
+      toast.success("Double-Entry-gii waa uu guulaystay sxb!");
       if (refreshPayments) await refreshPayments();
       
       // Clear States
@@ -160,7 +174,6 @@ export default function CreatePaymentEntry({ isOpen, onClose, refreshPayments })
       setIsSubmitting(false);
     }
   };
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       {/* onInteractOutside waxay joojinaysaa freeze-ka Radix UI */}
