@@ -94,6 +94,7 @@ export default function CreateGrant({
       });
     }
   }, [grantToEdit, isOpen]);
+  const [isSubmitting, setIsSubmitting] = useState(false); // Add this hook
 
   const handleAddItem = () => setForm({ ...form, items: [...form.items, { itemId: "", qty: "" }] });
   const handleRemoveItem = (index) => setForm({ ...form, items: form.items.filter((_, i) => i !== index) });
@@ -104,16 +105,31 @@ export default function CreateGrant({
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
+  
+  if (isSubmitting) return; // Stop if already processing
+
+  setIsSubmitting(true); // Lock the process
+
+  try {
     const dataToSave = {
       ...form,
       amount: parseFloat(form.amount) || 0,
       items: form.items.filter(i => i.itemId !== "").map(i => ({ itemId: i.itemId, qty: parseInt(i.qty, 10) || 0 }))
     };
+    
     await (grantToEdit?.id ? updateGrant(grantToEdit.id, dataToSave) : createGrant(dataToSave));
+    
+    toast.success("Grant saved successfully!");
     onClose();
     refreshGrants();
-  };
+  } catch (error) {
+    console.error("Error saving grant:", error);
+    toast.error("Failed to save grant.");
+  } finally {
+    setIsSubmitting(false); // Unlock the process
+  }
+};
 
   return (
     <Dialog open={isOpen} onOpenChange={(val) => !val && onClose()}>
@@ -200,8 +216,13 @@ export default function CreateGrant({
           </div>
 
           <div className="col-span-2 pt-4 border-t flex justify-end gap-2">
-            <Button variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit" className="bg-[#1e3a8a]">Save Grant</Button>
+          <Button 
+  type="submit" 
+  className="bg-[#1e3a8a]" 
+  disabled={isSubmitting} // This prevents the double-click
+>
+  {isSubmitting ? "Saving..." : "Save Grant"}
+</Button>
           </div>
         </form>
       </DialogContent>

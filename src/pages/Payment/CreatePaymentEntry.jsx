@@ -26,11 +26,11 @@ export default function CreatePaymentEntry({ isOpen, onClose, refreshPayments })
   const [paymentMethod, setPaymentMethod] = useState("");
   const [referenceNo, setReferenceNo] = useState("");
 
-  // Alert Dialog States (Haddii haraagu ku filnaan waayo)
+  // Alert Dialog States
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [alertMessage, setAlertMessage] = useState("");
 
-  // 1. Soo dhuuq Invoices, Asset Accounts, iyo Expense Accounts marka foomku furmo
+  // 1. Data Fetching
   useEffect(() => {
     const fetchUnpaidInvoices = async () => {
       try {
@@ -47,7 +47,6 @@ export default function CreatePaymentEntry({ isOpen, onClose, refreshPayments })
         const snap = await getDocs(collection(db, "chart_of_accounts"));
         const allAccounts = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
-        // Sxb, halkan waxaan si taxadar leh ugu kala saaraynaa Assets iyo Expenses haba ahaadeen xarfo waaweyn ama yar-yar
         const assets = allAccounts.filter(acc => 
           acc.category?.toUpperCase() === "ASSETS" || acc.accountType?.toUpperCase() === "ASSETS"
         );
@@ -68,7 +67,7 @@ export default function CreatePaymentEntry({ isOpen, onClose, refreshPayments })
     }
   }, [isOpen]);
 
-  // 2. Marka Invoice la doorto -> Auto-fill Amount iyo Expense Account
+  // 2. Auto-fill logic
   useEffect(() => {
     if (selectedInvoiceId) {
       const matchedInvoice = unpaidInvoices.find(inv => inv.id === selectedInvoiceId);
@@ -84,7 +83,7 @@ export default function CreatePaymentEntry({ isOpen, onClose, refreshPayments })
     }
   }, [selectedInvoiceId, unpaidInvoices]);
 
-  // 3. FULINTA DOUBLE-ENTRY TRANSACTION (MARKA BADHANKA LA GUJISO)
+  // 3. TRANSACTION ENGINE
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedInvoiceId || !fromAccountId || !expenseAccountId || !paymentDate || !amountPaid || !paymentMethod) {
@@ -109,49 +108,37 @@ export default function CreatePaymentEntry({ isOpen, onClose, refreshPayments })
         if (!fromAccSnap.exists()) throw new Error("Asset account-ka lama helin!");
         if (!expenseAccSnap.exists()) throw new Error("Expense account-ka lama helin!");
 
+        // Total Balance = Opening Balance + New Arrivals
         const currentFromBalance = parseFloat(fromAccSnap.data().balance || 0);
         const currentExpenseBalance = parseFloat(expenseAccSnap.data().balance || 0);
 
-        // Halkan sxb waxaan ku xaqiijinaynaa in lacagtu ay ku filan tahay Asset Account-ka
+        // Validation Check
         if (currentFromBalance < parseAmount) {
-          // Waxaan tuuraynaa error gaar ah oo leh calaamad si aan ugu qabano 'catch' block-ga hoose
-          throw new Error(`INSUFFICIENT_FUNDS|[${fromAccSnap.data().accountName}] haraagiisu kuuma filna sxb! Balance-ka hadda kuu dhiman waa: $${currentFromBalance.toLocaleString()}`);
+          throw new Error(`INSUFFICIENT_FUNDS|Waan ka xumahay, lacagta koontada ${fromAccSnap.data().accountName} kuma filna bixintan. Waxaad haysataa wadarta: $${currentFromBalance.toLocaleString()}. Fadlan hubi opening balance-ka iyo dhaqdhaqaaqa kale.`);
         }
 
-        // Perform Account Updates
+        // Account Updates
         transaction.update(fromAccountRef, { balance: Number((currentFromBalance - parseAmount).toFixed(2)) });
         transaction.update(expenseAccountRef, { balance: Number((currentExpenseBalance + parseAmount).toFixed(2)) });
 
-        // Add Journal Entry
+        // Journal Entry
         const journalRef = doc(collection(db, "journal_entries"));
         transaction.set(journalRef, {
           date: paymentDate,
           fiscalYear: new Date(paymentDate).getFullYear().toString(),
           description: `Payment for Invoice: ${matchedInvoice.invoiceNumber} to ${matchedInvoice.supplierName}`,
           entries: [
-            { 
-              accountId: expenseAccountId, 
-              accountName: expenseAccSnap.data().accountName, 
-              debit: parseAmount, 
-              credit: 0 
-            },
-            { 
-              accountId: fromAccountId, 
-              accountName: fromAccSnap.data().accountName, 
-              debit: 0, 
-              credit: parseAmount 
-            }
+            { accountId: expenseAccountId, accountName: expenseAccSnap.data().accountName, debit: parseAmount, credit: 0 },
+            { accountId: fromAccountId, accountName: fromAccSnap.data().accountName, debit: 0, credit: parseAmount }
           ],
           createdAt: new Date().toISOString()
         });
 
         // Update Invoice
-        const invoiceRef = doc(db, "purchase_invoices", selectedInvoiceId);
-        transaction.update(invoiceRef, { status: "PAID" });
+        transaction.update(doc(db, "purchase_invoices", selectedInvoiceId), { status: "PAID" });
 
-        // Keydi rasiidka rasmiga ah
-        const paymentRef = doc(collection(db, "payment_entries"));
-        transaction.set(paymentRef, {
+        // Payment Entry
+        transaction.set(doc(collection(db, "payment_entries")), {
           invoiceId: selectedInvoiceId,
           journalEntryId: journalRef.id,
           invoiceNumber: matchedInvoice.invoiceNumber,
@@ -166,10 +153,10 @@ export default function CreatePaymentEntry({ isOpen, onClose, refreshPayments })
         });
       });
 
-      toast.success("Double-Entry-gii waa uu guulaystay sxb!");
+      toast.success("Payment recorded successfully!");
       if (refreshPayments) await refreshPayments();
       
-      // Clear States
+      // Reset
       setSelectedInvoiceId("");
       setFromAccountId("");
       setExpenseAccountId("");
@@ -180,14 +167,11 @@ export default function CreatePaymentEntry({ isOpen, onClose, refreshPayments })
       onClose();
     } catch (error) {
       console.error("Transaction error:", error);
-      
-      // Haddii error-ku yahay midkii haraa la'anta, tus AlertDialog-ga halkii aad ka tusi lahayd toast yar
       if (error.message && error.message.startsWith("INSUFFICIENT_FUNDS|")) {
-        const cleanMessage = error.message.split("|")[1];
-        setAlertMessage(cleanMessage);
+        setAlertMessage(error.message.split("|")[1]);
         setIsAlertOpen(true);
       } else {
-        toast.error(error.message || "Guuldarro ayaa dhacday!");
+        toast.error("Guuldarro ayaa dhacday, fadlan isku day markale!");
       }
     } finally {
       setIsSubmitting(false);
@@ -197,7 +181,7 @@ export default function CreatePaymentEntry({ isOpen, onClose, refreshPayments })
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent onInteractOutside={(e) => e.preventDefault()} className="w-[95vw] sm:max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-lg flex flex-col overflow-hidden">
+        <DialogContent className="w-[95vw] sm:max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-lg flex flex-col overflow-hidden">
           <DialogHeader className="pb-2 border-b">
             <DialogTitle className="text-xs md:text-sm font-black uppercase tracking-tight flex items-center gap-1.5">
               <DollarSign className="text-[#1e3a8a] dark:text-blue-500" size={16} /> Record Payment Entry
@@ -205,8 +189,6 @@ export default function CreatePaymentEntry({ isOpen, onClose, refreshPayments })
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-3 mt-2">
-            
-            {/* SELECT INVOICE */}
             <div className="flex flex-col gap-0.5">
               <Label className="text-[10px] font-bold uppercase text-slate-500">Select Invoice</Label>
               <Select modal={false} value={selectedInvoiceId} onValueChange={setSelectedInvoiceId}>
@@ -223,26 +205,24 @@ export default function CreatePaymentEntry({ isOpen, onClose, refreshPayments })
               </Select>
             </div>
 
-            {/* PAID FROM (BANK/CASH) */}
             <div className="flex flex-col gap-0.5">
               <Label className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1">
-                <Landmark size={10} /> Paid From (Bank/Cash)
+                <Landmark size={10} /> Paid From (Total Balance: Available)
               </Label>
               <Select modal={false} value={fromAccountId} onValueChange={setFromAccountId}>
                 <SelectTrigger className="w-full bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-xs h-8">
-                  <SelectValue placeholder="Select Asset Account" />
+                  <SelectValue placeholder="Select Account" />
                 </SelectTrigger>
                 <SelectContent>
                   {assetAccounts.map(acc => (
                     <SelectItem key={acc.id} value={acc.id}>
-                      [{acc.accountCode || "Asset"}] {acc.accountName} (${acc.balance?.toLocaleString()})
+                      {acc.accountName} (Total: ${acc.balance?.toLocaleString()})
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* EXPENSE ACCOUNT FIELD */}
             <div className="flex flex-col gap-0.5">
               <Label className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1">
                 <FileText size={10} /> Expense Account (To Account)
@@ -254,26 +234,23 @@ export default function CreatePaymentEntry({ isOpen, onClose, refreshPayments })
                 <SelectContent>
                   {expenseAccounts.map(acc => (
                     <SelectItem key={acc.id} value={acc.id}>
-                      [{acc.accountCode || "Expense"}] {acc.accountName}
+                      {acc.accountName}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* PAYMENT DATE */}
             <div className="flex flex-col gap-0.5">
               <Label className="text-[10px] font-bold uppercase text-slate-500">Payment Date</Label>
               <Input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} className="bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-xs h-8" required />
             </div>
 
-            {/* AMOUNT PAID */}
             <div className="flex flex-col gap-0.5">
               <Label className="text-[10px] font-bold uppercase text-slate-500">Amount Paid ($)</Label>
-              <Input type="number" step="any" placeholder="0.00" value={amountPaid} onChange={(e) => setAmountPaid(e.target.value)} className="bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-xs h-8 font-mono font-bold text-blue-600 dark:text-blue-400" required />
+              <Input type="number" step="any" value={amountPaid} onChange={(e) => setAmountPaid(e.target.value)} className="bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-xs h-8" required />
             </div>
 
-            {/* PAYMENT METHOD */}
             <div className="flex flex-col gap-0.5">
               <Label className="text-[10px] font-bold uppercase text-slate-500">Payment Method</Label>
               <Select modal={false} value={paymentMethod} onValueChange={setPaymentMethod}>
@@ -283,48 +260,41 @@ export default function CreatePaymentEntry({ isOpen, onClose, refreshPayments })
                 <SelectContent>
                   <SelectItem value="CASH">Cash</SelectItem>
                   <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
-                  <SelectItem value="E_SHILLING">E-Shilling (Zaad/Sahal)</SelectItem>
+                  <SelectItem value="E_SHILLING">E-Shilling</SelectItem>
                   <SelectItem value="CHEQUE">Cheque</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {/* REFERENCE NO */}
             <div className="flex flex-col gap-0.5">
-              <Label className="text-[10px] font-bold uppercase text-slate-500">Reference / Txn No</Label>
-              <Input type="text" placeholder="E.g. Ref-99018" value={referenceNo} onChange={(e) => setReferenceNo(e.target.value)} className="bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-xs h-8" />
+              <Label className="text-[10px] font-bold uppercase text-slate-500">Reference No</Label>
+              <Input type="text" value={referenceNo} onChange={(e) => setReferenceNo(e.target.value)} className="bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-xs h-8" />
             </div>
 
-            <DialogFooter className="gap-1.5 border-t pt-2 mt-1 flex flex-row justify-end w-full">
-              <Button type="button" onClick={onClose} disabled={isSubmitting} className="text-xs h-8 px-3 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-none">Cancel</Button>
-              <Button type="submit" disabled={isSubmitting} className="text-xs h-8 px-3 bg-[#1e3a8a] dark:bg-blue-600 text-white border-none cursor-pointer">
-                {isSubmitting && <Loader2 size={11} className="animate-spin mr-1" />} Save Payment
+            <DialogFooter className="gap-1.5 border-t pt-2 mt-1">
+              <Button type="button" onClick={onClose} disabled={isSubmitting} className="text-xs h-8 px-3 bg-slate-100 text-slate-800">Cancel</Button>
+              <Button type="submit" disabled={isSubmitting} className="text-xs h-8 px-3 bg-[#1e3a8a] text-white">
+                {isSubmitting ? <Loader2 size={11} className="animate-spin" /> : "Save Payment"}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* ALER DIALOG-GA HARAA LA'AANTA (INSUFFICIENT FUNDS ALERT) */}
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
-        <AlertDialogContent className="w-[90vw] sm:max-w-sm rounded-lg border border-red-200 dark:border-red-900 bg-white dark:bg-slate-900 p-5">
+        <AlertDialogContent className="w-[90vw] sm:max-w-sm rounded-lg border border-red-200 bg-white p-5">
           <AlertDialogHeader className="flex flex-col items-center justify-center text-center gap-2">
-            <div className="p-2.5 bg-red-50 dark:bg-red-950/50 rounded-full text-red-600 dark:text-red-400">
-              <AlertTriangle size={24} className="animate-pulse" />
+            <div className="p-2.5 bg-red-50 rounded-full text-red-600">
+              <AlertTriangle size={24} />
             </div>
-            <AlertDialogTitle className="text-sm font-black text-red-600 dark:text-red-400 uppercase tracking-wide">
-              Haraa la'aan / Balance Alert!
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
+            <AlertDialogTitle className="text-sm font-black text-red-600 uppercase">Balance Alert!</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-slate-600 leading-relaxed font-medium">
               {alertMessage}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="mt-4 flex w-full justify-center">
             <AlertDialogAction asChild>
-              <Button 
-                onClick={() => setIsAlertOpen(false)} 
-                className="w-full text-xs h-8 bg-red-600 hover:bg-red-700 text-white font-bold border-none cursor-pointer rounded"
-              >
+              <Button onClick={() => setIsAlertOpen(false)} className="w-full text-xs h-8 bg-red-600 hover:bg-red-700 text-white font-bold rounded">
                 Gartay Sxb
               </Button>
             </AlertDialogAction>

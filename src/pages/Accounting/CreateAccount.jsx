@@ -8,8 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
-import { FolderTree, Hash, FileText, DollarSign, AlertCircle } from "lucide-react";
+import { FolderTree, Hash, DollarSign, AlertCircle } from "lucide-react";
 import { collection, query, where, getDocs, orderBy, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
@@ -166,12 +165,27 @@ export default function CreateAccount({ isOpen, onClose, refreshAccounts, accoun
       }
     }
 
-    const openingValue = form.openingBalance ? parseFloat(form.openingBalance) : 0;
+    // --- SMART BALANCE CALCULATION ---
+    const newOpeningValue = form.openingBalance ? parseFloat(form.openingBalance) : 0;
+    
+    let finalBalance;
+    if (accountToEdit) {
+      // Calculate how much the opening balance changed (the difference/delta)
+      const oldOpening = parseFloat(accountToEdit.openingBalance || 0);
+      const diff = newOpeningValue - oldOpening;
+      
+      // Apply that difference to the existing current balance
+      const oldCurrentBalance = parseFloat(accountToEdit.balance || 0);
+      finalBalance = oldCurrentBalance + diff;
+    } else {
+      // If it's a new account, the current balance is just the opening balance
+      finalBalance = newOpeningValue;
+    }
+
     const dataToSubmit = {
       ...form,
-      openingBalance: openingValue,
-      // Hubi in marka la abuurayo ama la baddalayo uu balance-kuna raaco
-      balance: accountToEdit?.balance !== undefined ? accountToEdit.balance : openingValue
+      openingBalance: newOpeningValue,
+      balance: finalBalance
     };
 
     try {
