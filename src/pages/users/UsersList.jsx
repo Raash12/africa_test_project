@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { getUsers, deleteUser } from "@/services/userService";
-import { getEmployees } from "@/services/employees/employeeService";
+// HALKAN KA BEDDEL:
+import { getEmployeesService } from "/src/services/employees/employeeService.js";
 import { toast } from "sonner"; // Sonner Toast
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";

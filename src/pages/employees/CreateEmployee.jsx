@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { createEmployee, updateEmployee } from "@/services/employees/employeeService";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
-export default function CreateEmployee({ editData, onSuccess }) {
+export default function CreateEmployee({ editData, actions, onSuccess }) {
+  const { addEmployee, editEmployee } = actions;
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState({
     fullName: "",
     email: "",
@@ -11,7 +12,6 @@ export default function CreateEmployee({ editData, onSuccess }) {
     salary: "",
   });
 
-  // Haddii Edit la riixo, xogta halkan ayay ku soo dhacaysaa
   useEffect(() => {
     if (editData) {
       setForm({
@@ -28,17 +28,20 @@ export default function CreateEmployee({ editData, onSuccess }) {
   const submit = async () => {
     try {
       if (!form.fullName || !form.email) return alert("Please fill required fields");
+      setIsSubmitting(true);
 
       if (editData) {
-        await updateEmployee(editData.id, form);
+        await editEmployee(editData.id, form);
         alert("Employee updated successfully");
       } else {
-        await createEmployee(form);
+        await addEmployee(form);
         alert("Employee created successfully");
       }
-      onSuccess?.(); // Waxay xiraysaa popup-ka, waxayna dib u load-garaynaysaa list-ka
+      onSuccess?.(); 
     } catch (err) {
       alert(err.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -89,8 +92,9 @@ export default function CreateEmployee({ editData, onSuccess }) {
       <Button 
         className="w-full bg-[#1e3a8a] dark:bg-blue-600 hover:bg-green-600 dark:hover:bg-green-700 font-bold text-white transition-all mt-2" 
         onClick={submit}
+        disabled={isSubmitting}
       >
-        {editData ? "Update Employee" : "Save Employee"}
+        {isSubmitting ? "Processing..." : editData ? "Update Employee" : "Save Employee"}
       </Button>
     </div>
   );

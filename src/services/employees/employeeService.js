@@ -3,14 +3,14 @@ import { db } from "@/lib/firebase";
 
 const employeesRef = collection(db, "employees");
 
-export const createEmployee = async (data) => {
+export const createEmployeeService = async (data) => {
   return await addDoc(employeesRef, {
     ...data,
     createdAt: serverTimestamp(),
   });
 };
 
-export const getEmployees = async () => {
+export const getEmployeesService = async () => {
   const snap = await getDocs(employeesRef);
   return snap.docs.map((d) => ({
     id: d.id,
@@ -18,12 +18,12 @@ export const getEmployees = async () => {
   }));
 };
 
-export const updateEmployee = async (id, data) => {
+export const updateEmployeeService = async (id, data) => {
   const ref = doc(db, "employees", id);
   return await updateDoc(ref, data);
 };
 
-export const deleteEmployee = async (id) => {
+export const deleteEmployeeService = async (id) => {
   const ref = doc(db, "employees", id);
   return await deleteDoc(ref);
 };
