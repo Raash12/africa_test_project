@@ -31,7 +31,11 @@ import ListFinanceBook from "./pages/Accounting/ListFinanceBook";
 import ListJournalEntries from "./pages/Accounting/ListJournalEntries"; // 🌟 Journal Entries Module path-kiisa
 // Corrected spelling
 import ListGeneralLedger from "./pages/Accounting/ListGeneralLedger";
-
+// PAYROLL PAGES
+import ListSalaryExpense from "./pages/payroll/ListSalaryExpense"; // 🌟 Payroll - Salary Expense List
+import SalaryForm from "./pages/payroll/SalaryForm"; // 🌟 PAYROLL - Salary Form (Kusoo daris cusub)
+import ListGeneralExpense from "./pages/payroll/ListGeneralExpense"; // 🌟 Payroll - General Expense List
+import GeneralExpenseForm from "./pages/payroll/GeneralExpenseForm"; // 🌟 Payroll - General Expense Form
 // 🛡️ PROTECTED ROUTE COMPONENT (Wuxuu xalliyaa is-diidmada Brave iyo Chrome)
 function ProtectedRoute({ children }) {
   const { currentUser, loading } = useAuth();
@@ -136,6 +140,12 @@ export default function App() {
         <Route path="journal-entries" element={<ListJournalEntries />} />
         {/* 🌟 ACCOUNTING - GENERAL LEDGER ROUTE */ }
         <Route path="general-ledger" element={<ListGeneralLedger />} />
+        {/* 🌟 PAYROLL - SALARY EXPENSE LIST ROUTE */ }
+        <Route path="salary-expenses" element={<ListSalaryExpense />} />
+        <Route path="salary-form" element={<SalaryForm />} />
+        {/* 🌟 PAYROLL - GENERAL EXPENSES ROUTE */    }
+        <Route path="general-expenses" element={<ListGeneralExpense />} />
+        <Route path="general-expense-form" element={<GeneralExpenseForm />} />
       </Route>
 
 

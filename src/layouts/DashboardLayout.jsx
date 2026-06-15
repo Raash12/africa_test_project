@@ -31,7 +31,7 @@ import {
   CalendarDays,
   FolderTree,
   ShoppingCart,
-  BookOpen, // Waxaa la soo dhex qaatay icon-ka Finance Book
+  BookOpen,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,7 @@ export default function DashboardLayout() {
   const [purchaseOpen, setPurchaseOpen] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [hrmOpen, setHrmOpen] = useState(false);
+  const [payrollOpen, setPayrollOpen] = useState(false); // State-ka cusub ee Payroll
 
   const location = useLocation();
 
@@ -75,14 +76,13 @@ export default function DashboardLayout() {
     { name: "Beneficiaries", path: "/beneficiaries", icon: HeartHandshake },
   ];
 
-  // Halkan waxaa lagu daray Finance Book
   const accountItems = [
     { name: "Chart of Accounts", path: "/chart-of-accounts", icon: FolderTree },
     { name: "Finance Book", path: "/finance-books", icon: BookOpen },
     { name: "Fiscal Years", path: "/fiscal-years", icon: CalendarDays },
     { name: "Suppliers", path: "/suppliers", icon: Truck },
     { name: "Journal Entries", path: "/journal-entries", icon: FileText },
-    {name : "general ledger", path: "/general-ledger", icon: Receipt}
+    { name: "general ledger", path: "/general-ledger", icon: Receipt }
   ];
 
   const purchaseItems = [
@@ -94,6 +94,12 @@ export default function DashboardLayout() {
     { name: "Payment Entry", path: "/payment-entries", icon: CreditCard },
   ];
 
+  // Carruurta cusub ee Payroll (Labadii fayl ee aad kala jabisay)
+  const payrollItems = [
+    { name: "Salary Expenses", path: "/salary-expenses", icon: Briefcase },
+    { name: "General Expenses", path: "/general-expenses", icon: Receipt },
+  ];
+
   // Hubinta in menu-ga hadda la joogo uu active yahay
   const isInventoryActive = inventoryItems.some((item) => location.pathname === item.path);
   const isPmActive = programManagementItems.some((item) => location.pathname === item.path);
@@ -101,6 +107,7 @@ export default function DashboardLayout() {
   const isPurchaseActive = purchaseItems.some((item) => location.pathname === item.path);
   const isPaymentActive = paymentItems.some((item) => location.pathname === item.path);
   const isHrmActive = location.pathname === "/employees" || location.pathname === "/users";
+  const isPayrollActive = payrollItems.some((item) => location.pathname === item.path); // Hubinta Payroll active
 
   // In dropdown-ku si toos ah isu furo haddii link gudihiisa ah la joogo
   useEffect(() => {
@@ -110,7 +117,8 @@ export default function DashboardLayout() {
     if (isPurchaseActive) setPurchaseOpen(true);
     if (isPaymentActive) setPaymentOpen(true);
     if (isHrmActive) setHrmOpen(true);
-  }, [location.pathname, isInventoryActive, isPmActive, isAccountActive, isPurchaseActive, isPaymentActive, isHrmActive]);
+    if (isPayrollActive) setPayrollOpen(true); // Auto open Payroll
+  }, [location.pathname, isInventoryActive, isPmActive, isAccountActive, isPurchaseActive, isPaymentActive, isHrmActive, isPayrollActive]);
 
   return (
     <div className={dark ? "dark" : ""}>
@@ -334,7 +342,7 @@ export default function DashboardLayout() {
               )}
             </div>
 
-            {/* PARENT: ACCOUNTING (Halkan ayuu ku jiraa Finance Book) */}
+            {/* PARENT: ACCOUNTING */}
             <div className="space-y-1">
               <button
                 onClick={() => {
@@ -590,6 +598,69 @@ export default function DashboardLayout() {
                 </div>
               )}
             </div>
+
+            {/* PARENT CUSUB: PAYROLL (Xaqan ayaa lagu soo daray) */}
+            <div className="space-y-1">
+              <button
+                onClick={() => {
+                  if (!open) setOpen(true);
+                  setPayrollOpen(!payrollOpen);
+                }}
+                className={`
+                  w-full flex items-center justify-between
+                  px-4 py-3 rounded-xl
+                  transition-all duration-200
+                  text-sm font-medium
+                  ${
+                    isPayrollActive
+                      ? "text-white bg-slate-800/50 font-semibold"
+                      : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                  }
+                  ${!open && "justify-center px-0"}
+                `}
+              >
+                <div className="flex items-center gap-3">
+                  <HandCoins size={20} className={isPayrollActive ? "text-green-500" : ""} />
+                  {open && <span>Payroll</span>}
+                </div>
+                {open && (
+                  <ChevronDown
+                    size={16}
+                    className={`transition-transform duration-200 ${payrollOpen ? "rotate-180" : ""}`}
+                  />
+                )}
+              </button>
+
+              {payrollOpen && open && (
+                <div className="pl-6 space-y-1 transition-all duration-200">
+                  {payrollItems.map((child) => {
+                    const ChildIcon = child.icon;
+                    const isChildActive = location.pathname === child.path;
+
+                    return (
+                      <Link
+                        key={child.name}
+                        to={child.path}
+                        className={`
+                          flex items-center gap-3
+                          px-4 py-2.5 rounded-xl
+                          text-xs font-medium transition-all duration-200
+                          ${
+                            isChildActive
+                              ? "bg-green-600 text-white shadow-md shadow-green-900/10"
+                              : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                          }
+                        `}
+                      >
+                        <ChildIcon size={16} />
+                        <span>{child.name}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
           </nav>
 
           {/* BOTTOM ACTIONS */}
@@ -602,57 +673,29 @@ export default function DashboardLayout() {
                 open ? "justify-start" : "justify-center px-0"
               }`}
             >
-              {dark ? <Sun size={18} className={open ? "mr-3" : ""} /> : <Moon size={18} className={open ? "mr-3" : ""} />}
-              {open && (dark ? "Light Mode" : "Dark Mode")}
+              {dark ? <Sun size={18} className="mr-2" /> : <Moon size={18} className="mr-2" />}
+              {open && <span>{dark ? "Light Mode" : "Dark Mode"}</span>}
             </Button>
 
             <Button
-              variant="destructive"
-              className={`w-full bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white transition-all rounded-xl py-6 ${
-                !open && "justify-center"
-              }`}
+              variant="ghost"
+              size="sm"
               onClick={() => signOut(auth)}
+              className={`w-full text-red-400 hover:text-red-300 hover:bg-red-950/30 px-4 ${
+                open ? "justify-start" : "justify-center px-0"
+              }`}
             >
-              <LogOut size={18} className={open ? "mr-2" : ""} />
-              {open && "Logout"}
+              <LogOut size={18} className="mr-2" />
+              {open && <span>Logout</span>}
             </Button>
           </div>
         </aside>
 
-        {/* MAIN CONTENT */}
-        <main className="flex-1 flex flex-col h-screen overflow-y-auto">
-          {/* HEADER */}
-          <header className="relative py-8 px-8 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
-            <div className="absolute top-0 right-0 w-64 h-full bg-gradient-to-l from-green-500/5 to-transparent pointer-events-none" />
-
-            <div className="flex items-center justify-between relative z-10">
-              <div className="flex items-center gap-6">
-                <img
-                  src={logo}
-                  alt="Organization Logo"
-                  className="w-16 h-16 object-contain drop-shadow-sm"
-                />
-                <div className="h-12 w-[1px] bg-slate-200 dark:bg-slate-700 hidden sm:block" />
-                <div>
-                  <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-3xl">
-                    Africa <span className="text-green-600 dark:text-green-500">Ihsan</span> Aid Foundation
-                  </h2>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-widest">
-                      Resource Management System
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </header>
-
-          {/* DYNAMIC CONTENT */}
-          <div className="flex-1 p-8 bg-slate-50 dark:bg-slate-950">
-            <div className="max-w-7xl mx-auto">
-              <Outlet />
-            </div>
+        {/* MAIN CONTENT AREA */}
+        <main className="flex-1 flex flex-col h-full overflow-hidden">
+          {/* HEADER (Optional space or Top bar can go here) */}
+          <div className="flex-1 overflow-y-auto p-4 bg-slate-50 dark:bg-slate-950">
+            <Outlet />
           </div>
         </main>
       </div>
