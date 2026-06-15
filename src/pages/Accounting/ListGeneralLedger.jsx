@@ -17,21 +17,30 @@ export default function MasterGeneralLedger() {
   const [search, setSearch] = useState("");
   const rowsPerPage = 10;
 
-  // 1. Create a Lookup Map for Accounts (Name + Opening Balance)
   const accountMap = useMemo(() => {
     return accounts.reduce((acc, curr) => {
-      acc[curr.id] = { 
-        name: curr.accountName, 
-        openingBalance: Number(curr.openingBalance || 0) 
-      };
+      acc[curr.id] = { name: curr.accountName, openingBalance: Number(curr.openingBalance || 0) };
       return acc;
     }, {});
   }, [accounts]);
 
-  // 2. Data Engine: Flatten entries and map account info
+  // 1. Data Engine
   const ledgerData = useMemo(() => {
     let entries = [];
 
+    // Inject Opening Balance Rows
+    accounts.forEach(acc => {
+      entries.push({
+        id: `open-${acc.id}`, date: '2026-01-01', description: 'Opening Balance',
+        counterparty: '-', debit: 0, credit: 0,
+        isOpening: true,
+        accountId: acc.id,
+        accountName: acc.accountName,
+        openingValue: Number(acc.openingBalance || 0)
+      });
+    });
+
+    // Map Transactions
     grants.forEach(g => {
       entries.push({
         id: g.id, date: g.startDate, description: `Grant: ${g.grantName}`,
@@ -57,17 +66,12 @@ export default function MasterGeneralLedger() {
     });
 
     return entries.sort((a, b) => new Date(a.date) - new Date(b.date));
-  }, [grants, payments, accountMap]);
+  }, [grants, payments, accounts, accountMap]);
 
-  // 3. Calculation Engine: Calculate balances per account
+  // 2. Calculation Engine
   const processedData = useMemo(() => {
-    // Keep a dynamic tracker for balances as we iterate
     const currentBalances = {};
-    
-    // Initialize with Opening Balances for all accounts
-    Object.keys(accountMap).forEach(id => {
-      currentBalances[id] = accountMap[id].openingBalance;
-    });
+    Object.keys(accountMap).forEach(id => currentBalances[id] = accountMap[id].openingBalance);
 
     return ledgerData
       .filter(e => {
@@ -77,8 +81,9 @@ export default function MasterGeneralLedger() {
         return matchesAccount && matchesSearch;
       })
       .map(entry => {
-        // Update the running balance for this specific account
-        currentBalances[entry.accountId] += (entry.debit - entry.credit);
+        if (!entry.isOpening) {
+          currentBalances[entry.accountId] += (entry.debit - entry.credit);
+        }
         return { ...entry, runningBalance: currentBalances[entry.accountId] };
       });
   }, [ledgerData, selectedAccountId, search, accountMap]);
@@ -93,7 +98,7 @@ export default function MasterGeneralLedger() {
       <div className="flex justify-between items-start mb-10">
         <div>
           <h1 className="text-4xl font-black text-slate-900 tracking-tight">General Ledger</h1>
-          <p className="text-slate-500 mt-2 font-medium">Full Audit Trail with Opening Balances</p>
+          <p className="text-slate-500 mt-2 font-medium">Audit-Ready Financial Tracking</p>
         </div>
         <select 
           className="bg-white border border-slate-200 px-4 py-2 rounded-xl text-sm font-bold shadow-sm"
@@ -110,7 +115,7 @@ export default function MasterGeneralLedger() {
             <Search className="absolute left-3 top-3 text-slate-400" size={18} />
             <input 
               className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm" 
-              placeholder="Search description..." 
+              placeholder="Search..." 
               value={search}
               onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }} 
             />
@@ -134,9 +139,9 @@ export default function MasterGeneralLedger() {
           </thead>
           <tbody className="divide-y divide-slate-50">
             {paginatedData.map((row, idx) => (
-              <tr key={idx} className="hover:bg-slate-50 transition-colors">
+              <tr key={idx} className={`${row.isOpening ? 'bg-slate-50/80 italic' : 'hover:bg-slate-50'} transition-colors`}>
                 <td className="px-8 py-5 text-xs font-mono text-slate-500">{row.date}</td>
-                <td className="px-8 py-5 text-xs font-bold text-slate-900 bg-slate-50/50">{row.accountName}</td>
+                <td className="px-8 py-5 text-xs font-bold text-slate-900">{row.accountName}</td>
                 <td className="px-8 py-5 text-sm font-semibold text-slate-900">{row.description}</td>
                 <td className="px-8 py-5 text-right text-emerald-600 font-bold tabular-nums">
                   {row.debit > 0 ? formatCurrency(row.debit) : "-"}
