@@ -27,7 +27,6 @@ import { useSalary } from "@/hooks/useSalary";
 import SalaryForm from "./SalaryForm"; 
 
 export default function ListSalaryExpense() {
-  //  Waxaan si toos ah hook-ga uga soo dhoofsanay deleteTransaction halkii aan adeeg dibadda ah ka waci lahayn
   const { transactions = [], loading, refresh, deleteTransaction } = useSalary();
   const [isOpen, setIsOpen] = useState(false);
   const [salaryToEdit, setSalaryToEdit] = useState(null);
@@ -38,6 +37,14 @@ export default function ListSalaryExpense() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
+
+  // 🌟 Helper function oo Firestore Timestamp u beddeleysa JS Date si ammaan ah
+  const parseTransactionDate = (dateField) => {
+    if (!dateField) return new Date(0); // Haddii aysan taariikh jirin hoos u ridi
+    if (typeof dateField.toDate === "function") return dateField.toDate();
+    if (dateField.seconds) return new Date(dateField.seconds * 1000);
+    return new Date(dateField);
+  };
 
   const handleEdit = (salary) => {
     setSalaryToEdit(salary);
@@ -51,7 +58,6 @@ export default function ListSalaryExpense() {
 
   const executeDelete = async () => {
     try {
-      //  Waxaan hadda isticmaalaynaa function-kii saxda ahaa ee hook-ga dhexdiisa ku jiray
       await deleteTransaction(salaryToDelete);
       toast.success("Salary transaction deleted successfully.");
     } catch (error) {
@@ -70,6 +76,7 @@ export default function ListSalaryExpense() {
   const filteredSalaries = useMemo(() => {
     if (!transactions || !Array.isArray(transactions)) return [];
 
+    // 1. Sifee oo kaliya kuwa Salary ah
     const validSalaries = transactions.filter((t) => {
       if (!t) return false;
       const hasSalaryCategory = t.category && t.category.trim().toLowerCase() === "salary";
@@ -80,15 +87,22 @@ export default function ListSalaryExpense() {
       return hasSalaryCategory || looksLikeSalary;
     });
 
+    // 2. Filter-ka raadinta (Search)
     const searchLower = search.trim().toLowerCase();
-    if (!searchLower) return validSalaries;
+    const searchedList = !searchLower 
+      ? validSalaries 
+      : validSalaries.filter((t) => {
+          const empName = (t.employeeName || "").toLowerCase();
+          const empId = (t.employeeId || "").toLowerCase();
+          const desc = (t.description || "").toLowerCase();
+          return empName.includes(searchLower) || empId.includes(searchLower) || desc.includes(searchLower);
+        });
 
-    return validSalaries.filter((t) => {
-      const empName = (t.employeeName || "").toLowerCase();
-      const empId = (t.employeeId || "").toLowerCase();
-      const desc = (t.description || "").toLowerCase();
-      return empName.includes(searchLower) || empId.includes(searchLower) || desc.includes(searchLower);
+    // 🌟 3. KALA HORREYN (SORT): Midka ugu dambeeyay/ugu cusub ha ugu dhex baxo kor (Newest First)
+    return searchedList.sort((a, b) => {
+      return parseTransactionDate(b.date) - parseTransactionDate(a.date);
     });
+
   }, [transactions, search]);
 
   const totalPages = Math.max(Math.ceil(filteredSalaries.length / itemsPerPage), 1);
@@ -154,49 +168,56 @@ export default function ListSalaryExpense() {
                   </td>
                 </tr>
               ) : (
-                paginatedSalaries.map((salary) => (
-                  <tr key={salary.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                    <td className="p-3.5 whitespace-nowrap text-slate-500">
-                      <div className="flex items-center gap-1.5">
-                        <Calendar size={13} className="text-slate-400" />
-                        {salary.date ? new Date(salary.date).toLocaleDateString() : "—"}
-                      </div>
-                    </td>
-                    <td className="p-3.5">
-                      <div className="flex items-center gap-1.5">
-                        <User size={13} className="text-[#1e3a8a]" />
-                        <div>
-                          <span className="font-bold text-slate-800 dark:text-slate-200">{salary.employeeName || "Unknown"}</span>
-                          {salary.employeeId && <div className="text-[10px] text-slate-400">ID: {salary.employeeId}</div>}
+                paginatedSalaries.map((salary) => {
+                  // 🌟 Halkan ugu beddel String si ammaan ah oo uu shaqeeyo toLocaleDateString()
+                  const displayDate = salary.date 
+                    ? parseTransactionDate(salary.date).toLocaleDateString() 
+                    : "—";
+
+                  return (
+                    <tr key={salary.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                      <td className="p-3.5 whitespace-nowrap text-slate-500">
+                        <div className="flex items-center gap-1.5">
+                          <Calendar size={13} className="text-slate-400" />
+                          {displayDate}
                         </div>
-                      </div>
-                    </td>
-                    <td className="p-3.5 max-w-[200px] truncate text-slate-500" title={salary.description}>
-                      <div className="flex items-center gap-1.5">
-                        <FileText size={13} className="text-slate-300" />
-                        <span>{salary.description || `${salary.month || ''} Salary`}</span>
-                      </div>
-                    </td>
-                    <td className="p-3.5 whitespace-nowrap">
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border text-[10px] font-semibold text-slate-700 dark:text-slate-300">
-                        {salary.accountName || "Cash/Bank Account"}
-                      </span>
-                    </td>
-                    <td className="p-3.5 text-right font-bold text-emerald-600 whitespace-nowrap text-sm">
-                      ${Number(salary.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </td>
-                    <td className="p-3.5 text-center">
-                      <div className="flex justify-center gap-1.5">
-                        <button onClick={() => handleEdit(salary)} className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-md transition-colors">
-                          <Edit2 size={14} />
-                        </button>
-                        <button onClick={() => confirmDelete(salary.id)} className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-md transition-colors">
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="p-3.5">
+                        <div className="flex items-center gap-1.5">
+                          <User size={13} className="text-[#1e3a8a]" />
+                          <div>
+                            <span className="font-bold text-slate-800 dark:text-slate-200">{salary.employeeName || "Unknown"}</span>
+                            {salary.employeeId && <div className="text-[10px] text-slate-400">ID: {salary.employeeId}</div>}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-3.5 max-w-[200px] truncate text-slate-500" title={salary.description}>
+                        <div className="flex items-center gap-1.5">
+                          <FileText size={13} className="text-slate-300" />
+                          <span>{salary.description || `${salary.month || ''} Salary`}</span>
+                        </div>
+                      </td>
+                      <td className="p-3.5 whitespace-nowrap">
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border text-[10px] font-semibold text-slate-700 dark:text-slate-300">
+                          {salary.accountName || "Cash/Bank Account"}
+                        </span>
+                      </td>
+                      <td className="p-3.5 text-right font-bold text-emerald-600 whitespace-nowrap text-sm">
+                        ${Number(salary.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="p-3.5 text-center">
+                        <div className="flex justify-center gap-1.5">
+                          <button onClick={() => handleEdit(salary)} className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-md transition-colors">
+                            <Edit2 size={14} />
+                          </button>
+                          <button onClick={() => confirmDelete(salary.id)} className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-md transition-colors">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -238,7 +259,6 @@ export default function ListSalaryExpense() {
         </Pagination>
       )}
 
-      {/* MODAL MOUNTED */}
       <SalaryForm 
         isOpen={isOpen} 
         onClose={handleCloseModal} 

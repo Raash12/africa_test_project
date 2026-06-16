@@ -28,7 +28,6 @@ import { useGeneralExpense } from "@/hooks/useGeneralExpense";
 import GeneralExpenseForm from "./GeneralExpenseForm"; 
 
 export default function ListGeneralExpense() {
-  // 🌟 Halkan waxaa laga soo wada saaray 'accounts' props ahaan, waxaan toos uga dhex aqrinaynaa Hook-ga
   const { transactions = [], accounts = [], loading, addTransaction, deleteTransaction } = useGeneralExpense();
   
   const [isOpen, setIsOpen] = useState(false);
@@ -40,6 +39,14 @@ export default function ListGeneralExpense() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
+
+  // 🌟 Helper function oo Firestore Timestamp u beddeleysa JS Date si ammaan ah
+  const parseTransactionDate = (dateField) => {
+    if (!dateField) return new Date(0); // Haddii aysan taariikh jirin hoos u ridi
+    if (typeof dateField.toDate === "function") return dateField.toDate();
+    if (dateField.seconds) return new Date(dateField.seconds * 1000);
+    return new Date(dateField);
+  };
 
   const handleEdit = (expense) => {
     setExpenseToEdit(expense);
@@ -71,19 +78,27 @@ export default function ListGeneralExpense() {
   const filteredExpenses = useMemo(() => {
     if (!transactions || !Array.isArray(transactions)) return [];
 
+    // 1. Sifee oo kaliya kuwa category-goodu yahay expense
     const validExpenses = transactions.filter((t) => t?.category?.toLowerCase() === "expense");
 
+    // 2. Filter-ka raadinta (Search)
     const searchLower = search.trim().toLowerCase();
-    if (!searchLower) return validExpenses;
+    const searchedList = !searchLower
+      ? validExpenses
+      : validExpenses.filter((t) => {
+          return (
+            (t.description || "").toLowerCase().includes(searchLower) ||
+            (t.chargedToAccount || "").toLowerCase().includes(searchLower) ||
+            (t.paidFromAccount || "").toLowerCase().includes(searchLower) ||
+            (t.month || "").toLowerCase().includes(searchLower)
+          );
+        });
 
-    return validExpenses.filter((t) => {
-      return (
-        (t.description || "").toLowerCase().includes(searchLower) ||
-        (t.chargedToAccount || "").toLowerCase().includes(searchLower) ||
-        (t.paidFromAccount || "").toLowerCase().includes(searchLower) ||
-        (t.month || "").toLowerCase().includes(searchLower)
-      );
+    // 🌟 3. KALA HORREYN (SORT): Midka ugu dambeeyay/ugu cusub ha ugu dhex baxo kor (Newest First)
+    return searchedList.sort((a, b) => {
+      return parseTransactionDate(b.date) - parseTransactionDate(a.date);
     });
+
   }, [transactions, search]);
 
   const totalPages = Math.max(Math.ceil(filteredExpenses.length / itemsPerPage), 1);
@@ -148,47 +163,54 @@ export default function ListGeneralExpense() {
                   </td>
                 </tr>
               ) : (
-                paginatedExpenses.map((expense) => (
-                  <tr key={expense.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                    <td className="p-3.5 max-w-[220px]">
-                      <div className="font-bold text-slate-800 dark:text-slate-200 truncate">{expense.description}</div>
-                      <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 flex items-center gap-1">
-                        <Calendar size={11} /> Date: {expense.date ? new Date(expense.date.seconds * 1000).toLocaleDateString() : "—"}
-                      </div>
-                    </td>
-                    <td className="p-3.5 text-[11px] space-y-0.5">
-                      <div className="text-amber-600 dark:text-amber-500 font-semibold flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                        CR: {expense.paidFromAccount || "Bank Account"} (-${expense.amount})
-                      </div>
-                      <div className="text-emerald-600 dark:text-emerald-500 font-semibold flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                        DR: {expense.chargedToAccount || "Expense Account"} (+${expense.amount})
-                      </div>
-                    </td>
-                    <td className="p-3.5 text-center whitespace-nowrap">
-                      <Badge variant="outline" className="text-[10px] font-bold px-2 py-0.5 bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-400 dark:border-slate-800">
-                        {expense.month}
-                      </Badge>
-                    </td>
-                    <td className="p-3.5 text-right font-bold whitespace-nowrap">
-                      <div className="flex items-center justify-end text-red-500 dark:text-red-400 font-bold text-xs">
-                        <ArrowUpRight size={13} className="mr-0.5 opacity-80" /> 
-                        ${Number(expense.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </div>
-                    </td>
-                    <td className="p-3.5 text-center whitespace-nowrap">
-                      <div className="flex justify-center gap-1.5">
-                        <button onClick={() => handleEdit(expense)} className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-md transition-colors">
-                          <Edit2 size={14} />
-                        </button>
-                        <button onClick={() => confirmDelete(expense.id)} className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-md transition-colors">
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                paginatedExpenses.map((expense) => {
+                  // 🌟 Taariikhda halkan ugu beddel String si ammaan ah oo uu u shaqeeyo toLocaleDateString()
+                  const displayDate = expense.date 
+                    ? parseTransactionDate(expense.date).toLocaleDateString() 
+                    : "—";
+
+                  return (
+                    <tr key={expense.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                      <td className="p-3.5 max-w-[220px]">
+                        <div className="font-bold text-slate-800 dark:text-slate-200 truncate">{expense.description}</div>
+                        <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 flex items-center gap-1">
+                          <Calendar size={11} /> Date: {displayDate}
+                        </div>
+                      </td>
+                      <td className="p-3.5 text-[11px] space-y-0.5">
+                        <div className="text-amber-600 dark:text-amber-500 font-semibold flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                          CR: {expense.paidFromAccount || "Bank Account"} (-${expense.amount})
+                        </div>
+                        <div className="text-emerald-600 dark:text-emerald-500 font-semibold flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                          DR: {expense.chargedToAccount || "Expense Account"} (+${expense.amount})
+                        </div>
+                      </td>
+                      <td className="p-3.5 text-center whitespace-nowrap">
+                        <Badge variant="outline" className="text-[10px] font-bold px-2 py-0.5 bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-400 dark:border-slate-800">
+                          {expense.month}
+                        </Badge>
+                      </td>
+                      <td className="p-3.5 text-right font-bold whitespace-nowrap">
+                        <div className="flex items-center justify-end text-red-500 dark:text-red-400 font-bold text-xs">
+                          <ArrowUpRight size={13} className="mr-0.5 opacity-80" /> 
+                          ${Number(expense.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+                      </td>
+                      <td className="p-3.5 text-center whitespace-nowrap">
+                        <div className="flex justify-center gap-1.5">
+                          <button onClick={() => handleEdit(expense)} className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-md transition-colors">
+                            <Edit2 size={14} />
+                          </button>
+                          <button onClick={() => confirmDelete(expense.id)} className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-md transition-colors">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -255,7 +277,6 @@ export default function ListGeneralExpense() {
               </button>
             </div>
             <div className="p-5">
-              {/* 🌟 Halkan waxaa la isku xiriiriyay accounts si foomku mar walba u helo liiska dhabta ah */}
               <GeneralExpenseForm 
                 accounts={accounts} 
                 onExecute={addTransaction}
