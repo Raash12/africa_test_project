@@ -17,18 +17,16 @@ export default function ListGeneralLedger() {
   const [search, setSearch] = useState("");
   const rowsPerPage = 10;
 
-  // Taariikhda Firestore u beddel qoraal akhrismi kara (DD MMM YYYY)
+  const getRawDate = (dateField) => {
+    if (!dateField) return new Date(0);
+    if (typeof dateField.toDate === "function") return dateField.toDate();
+    if (dateField.seconds) return new Date(dateField.seconds * 1000);
+    return new Date(dateField);
+  };
+
   const formatFirestoreDate = (dateField) => {
-    if (!dateField) return "N/A";
-    let d;
-    if (typeof dateField.toDate === "function") {
-      d = dateField.toDate();
-    } else if (dateField.seconds) {
-      d = new Date(dateField.seconds * 1000);
-    } else {
-      d = new Date(dateField);
-    }
-    if (isNaN(d.getTime())) return "N/A";
+    const d = getRawDate(dateField);
+    if (isNaN(d.getTime()) || d.getTime() === 0) return "N/A";
     return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
@@ -60,9 +58,13 @@ export default function ListGeneralLedger() {
       const amt = Number(g.amount || 0);
       if (g.receivingAccountId) {
         entries.push({
-          id: `${g.id}-grant`, date: formatFirestoreDate(g.startDate), description: `Grant Received: ${g.grantName}`,
+          id: `${g.id}-grant`, 
+          date: formatFirestoreDate(g.startDate),
+          rawDate: getRawDate(g.startDate),
+          description: `Grant Received: ${g.grantName}`,
           counterparty: g.donorName || "-", debit: amt, credit: 0, accountId: g.receivingAccountId,
-          accountName: accountMap[g.receivingAccountId]?.name || "Bank Account"
+          accountName: accountMap[g.receivingAccountId]?.name || "Bank Account",
+          typeOrder: 2
         });
       }
     });
@@ -71,9 +73,13 @@ export default function ListGeneralLedger() {
       const amt = Number(p.amountPaid || p.amount || 0);
       if (p.fromAccountId) {
         entries.push({
-          id: `${p.journalEntryId}-pay-bank`, date: formatFirestoreDate(p.paymentDate), description: `Expense Payment: ${p.invoiceNumber || ""}`,
+          id: `${p.journalEntryId}-pay-bank`, 
+          date: formatFirestoreDate(p.paymentDate),
+          rawDate: getRawDate(p.paymentDate),
+          description: `Expense Payment: ${p.invoiceNumber || ""}`,
           counterparty: p.supplierName || "-", debit: 0, credit: amt, accountId: p.fromAccountId,
-          accountName: accountMap[p.fromAccountId]?.name || "Bank Account"
+          accountName: accountMap[p.fromAccountId]?.name || "Bank Account",
+          typeOrder: 3
         });
       }
     });
@@ -85,7 +91,6 @@ export default function ListGeneralLedger() {
   const processedData = useMemo(() => {
     let baseEntries = [];
 
-    // 🌟 INJECT OPENING BALANCES FIRST
     if (selectedAccountId === "all") {
       accounts.forEach(acc => {
         const accId = acc.id || acc.docId;
@@ -94,9 +99,11 @@ export default function ListGeneralLedger() {
           baseEntries.push({
             id: `open-${accId}`, 
             date: formatFirestoreDate(target.createdAt),
+            rawDate: new Date(0), 
             description: `📥 Opening Balance: ${target.name}`, counterparty: '-',
             debit: 0, credit: 0, isOpening: true, accountId: accId,
-            accountName: target.name, accountRunningBalance: target.openingBalance
+            accountName: target.name, accountRunningBalance: target.openingBalance,
+            typeOrder: 1
           });
         }
       });
@@ -106,17 +113,17 @@ export default function ListGeneralLedger() {
         baseEntries.push({
           id: `open-${selectedAccountId}`, 
           date: formatFirestoreDate(selectedAcc.createdAt),
+          rawDate: new Date(0), 
           description: `📥 Opening Balance (From Chart of Accounts)`, counterparty: '-',
           debit: 0, credit: 0, isOpening: true, accountId: selectedAccountId,
-          accountName: selectedAcc.name, accountRunningBalance: selectedAcc.openingBalance
+          accountName: selectedAcc.name, accountRunningBalance: selectedAcc.openingBalance,
+          typeOrder: 1
         });
       }
     }
 
-    // Combine Opening Balances with real Transactions
     let allEntries = [...baseEntries, ...ledgerData];
 
-    // 🌟 SEARCH FILTER FIX sxb: Hadda wuxuu si sax ah u sifeeyaa labadaba
     let filteredEntries = allEntries.filter(e => {
       const matchesAccount = selectedAccountId === "all" || String(e.accountId) === String(selectedAccountId);
       const matchesSearch = (e.description || "").toLowerCase().includes(search.toLowerCase()) || 
@@ -124,7 +131,12 @@ export default function ListGeneralLedger() {
       return matchesAccount && matchesSearch;
     });
 
-    let sortedOldestFirst = [...filteredEntries].sort((a, b) => new Date(a.date) - new Date(b.date));
+    let sortedOldestFirst = [...filteredEntries].sort((a, b) => {
+      if (a.rawDate.getTime() !== b.rawDate.getTime()) {
+        return a.rawDate - b.rawDate;
+      }
+      return a.typeOrder - b.typeOrder;
+    });
 
     const rollingBalances = {};
     accounts.forEach(acc => {
@@ -133,7 +145,7 @@ export default function ListGeneralLedger() {
     });
 
     let calculated = sortedOldestFirst.map((entry) => {
-      if (entry.isOpening) return entry; // Opening rows don't recalculate math
+      if (entry.isOpening) return entry;
       
       const accId = entry.accountId;
       const norm = accountMap[accId]?.normalBalance || "Debit";
@@ -145,14 +157,18 @@ export default function ListGeneralLedger() {
       return { ...entry, accountRunningBalance: rollingBalances[accId] };
     });
 
-    // Sort to display Newest First on UI
     return calculated.sort((a, b) => {
       if (a.isOpening && !b.isOpening) return 1;
       if (!a.isOpening && b.isOpening) return -1;
-      return new Date(b.date) - new Date(a.date);
+      if (a.rawDate.getTime() === b.rawDate.getTime()) {
+        return b.typeOrder - a.typeOrder; 
+      }
+      return b.rawDate - a.rawDate;
     });
   }, [ledgerData, selectedAccountId, search, accounts, accountMap]);
 
+  // PAGINATION CALCULATION
+  const totalPages = Math.ceil(processedData.length / rowsPerPage) || 1;
   const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * rowsPerPage;
     return processedData.slice(start, start + rowsPerPage);
@@ -162,15 +178,13 @@ export default function ListGeneralLedger() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50">
         <Loader2 className="h-10 w-10 animate-spin text-slate-800" />
-        <p className="text-sm mt-2 text-slate-500 font-medium">Habeeynaya xogta guud sxb...</p>
+        <p className="text-sm mt-2 text-slate-500 font-medium">Processing general ledger data...</p>
       </div>
     );
   }
 
   return (
     <div className="p-8 max-w-7xl mx-auto bg-slate-50 min-h-screen font-sans antialiased">
-      {/* 🔴 CARDS-KII KORE GABI AHAANBA WAAN TUURAY SXB SI UU SYSTEM-KU U NADIIF NOQDO */}
-      
       {/* Header Section */}
       <div className="flex justify-between items-center mb-8">
         <div>
@@ -261,6 +275,32 @@ export default function ListGeneralLedger() {
             </tbody>
           </table>
         </div>
+
+        {/* PAGINATION BUTTONS SECTION */}
+        {processedData.length > 0 && (
+          <div className="p-4 border-t border-slate-100 flex justify-between items-center bg-white text-xs text-slate-500 font-medium">
+            <div>
+              Showing page <span className="font-bold text-slate-800">{currentPage}</span> of <span className="font-bold text-slate-800">{totalPages}</span> (<span className="font-bold text-slate-800">{processedData.length}</span> total entries)
+            </div>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className={`px-3 py-1.5 border rounded-lg font-bold transition-all ${currentPage === 1 ? 'border-slate-100 text-slate-300 cursor-not-allowed' : 'border-slate-200 text-slate-700 hover:border-slate-300 bg-white cursor-pointer'}`}
+              >
+                Previous
+              </button>
+              <button 
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className={`px-3 py-1.5 border rounded-lg font-bold transition-all ${currentPage === totalPages ? 'border-slate-100 text-slate-300 cursor-not-allowed' : 'border-slate-200 text-slate-700 hover:border-slate-300 bg-white cursor-pointer'}`}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );

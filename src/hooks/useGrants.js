@@ -17,18 +17,25 @@ export default function useGrants() {
   const fetchGrantsDonorsAndPrograms = async () => {
     setLoading(true);
     try {
-      const programSnapshot = await getDocs(collection(db, "programs"));
+      const [programSnapshot, accountsSnapshot] = await Promise.all([
+        getDocs(collection(db, "programs")),
+        getDocs(collection(db, "chart_of_accounts"))
+      ]);
       const programsData = programSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const accountsData = accountsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
       const [grantsData, donorsData] = await Promise.all([getGrants(), getDonors()]);
       
       const enrichedGrants = grantsData.map(grant => {
         const matchedDonor = donorsData.find(d => d.id === grant.donorId);
         const matchedProgram = programsData.find(p => p.id === grant.programId);
+        const matchedAccount = accountsData.find(a => a.id === grant.receivingAccountId);
+        
         return {
           ...grant,
           donorName: matchedDonor ? matchedDonor.donorName : "Unknown Donor",
-          programName: matchedProgram ? matchedProgram.programName : "Unknown Program"
+          programName: matchedProgram ? matchedProgram.programName : "Unknown Program",
+          accountName: matchedAccount ? matchedAccount.accountName : "Cash/Bank Account" 
         };
       });
 
@@ -42,11 +49,5 @@ export default function useGrants() {
     }
   };
 
-  return {
-    grants,
-    donors,
-    programs, 
-    loading,
-    refreshGrants: fetchGrantsDonorsAndPrograms,
-  };
+  return { grants, donors, programs, loading, refreshGrants: fetchGrantsDonorsAndPrograms };
 }

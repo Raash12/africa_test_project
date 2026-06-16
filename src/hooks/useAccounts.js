@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { collection, getDocs, onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 export default function useAccounts() {
@@ -7,18 +7,19 @@ export default function useAccounts() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 🌟 HALKAN KA FIRI SXB: Waa inuu noqdaa chart_of_accounts
     const accountsRef = collection(db, "chart_of_accounts"); 
 
     const unsubscribe = onSnapshot(accountsRef, (snapshot) => {
       const data = snapshot.docs.map(doc => ({
         id: doc.id,
-        ...doc.data()
+        ...doc.data(),
+        // 🌟 MUHIIM: Qasab in balance-ku noqdo Number
+        balance: Number(doc.data().balance || 0)
       }));
       setAccounts(data);
       setLoading(false);
     }, (error) => {
-      console.error("Error fetching chart of accounts:", error);
+      console.error("Error fetching accounts:", error);
       setLoading(false);
     });
 
