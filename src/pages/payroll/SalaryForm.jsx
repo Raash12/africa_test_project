@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,14 +20,14 @@ import {
   AlertTriangle 
 } from "lucide-react";
 import { useEmployees } from "@/hooks/useEmployees";
-import { useSalary } from "@/hooks/useSalary"; //  Magaca saxda ah ee hook-ga waa kan 
+import { useSalary } from "@/hooks/useSalary"; 
 import { toast } from "sonner";
 
 export default function SalaryForm({ isOpen, onClose, refresh, salaryToEdit }) {
   if (!isOpen) return null;
 
   const { employees = [] } = useEmployees();
-  const { accounts = [], addTransaction, addGeneralLedger } = useSalary();
+  const { accounts = [], addTransaction } = useSalary();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
@@ -130,7 +129,8 @@ export default function SalaryForm({ isOpen, onClose, refresh, salaryToEdit }) {
       setIsSubmitting(true);
       const emp = employees.find(e => e.id === selectedEmployeeId);
 
-      const transactionId = await addTransaction({
+      // Waxaan u diraynaa xogta oo kaliya, backend ayaa Journal Entry-ga abuuraya hadda
+      await addTransaction({
         id: salaryToEdit?.id || null, 
         amount: parsedAmount,
         paidFromAccountId,
@@ -142,26 +142,13 @@ export default function SalaryForm({ isOpen, onClose, refresh, salaryToEdit }) {
         employeeName: emp?.fullName || salaryToEdit?.employeeName || ""
       });
 
-      if (typeof addGeneralLedger === "function") {
-        await addGeneralLedger({
-          referenceId: transactionId || salaryToEdit?.id || Date.now().toString(),
-          description: description,
-          month: month,
-          employeeId: selectedEmployeeId,
-          amount: parsedAmount,
-          creditAccountId: paidFromAccountId, 
-          debitAccountId: chargedToAccountId,  
-          timestamp: new Date()
-        });
-      }
-
       toast.success(salaryToEdit ? "Salary record updated successfully." : "Salary transaction processed successfully.");
       if (refresh) await refresh();
       onClose();
     } catch (err) {
       console.error(err);
       const errorMsg = err.message || "";
-      if (errorMsg.includes("DUPLICATE_PAYROLL")) {
+      if (errorMsg.includes("DUPLICATE_SALARY") || errorMsg.includes("DUPLICATE_PAYROLL")) {
         setAlertTitle("Duplicate Entry Detected");
         setAlertDescription(errorMsg.split("|")[1] || "A salary record for this employee has already been processed for this month.");
         setAlertOpen(true);

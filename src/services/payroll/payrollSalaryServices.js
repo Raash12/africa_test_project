@@ -3,6 +3,7 @@ import { db } from "@/lib/firebase";
 
 const accountsRef = collection(db, "chart_of_accounts");
 const transactionsRef = collection(db, "transactions");
+const journalEntriesRef = collection(db, "journal_entries"); // Collection-ka cusub ee JE
 
 // 1. Soo aqri Account-yada
 export const getAccountsService = async () => {
@@ -107,6 +108,33 @@ export const createSalaryTransactionService = async (payload) => {
     };
 
     transaction.set(txDocRef, txData, { merge: true });
+
+    // 🌟 D) ABUUR AMA CUSBOONEYSII JOURNAL ENTRY (Sida ka muuqata sawirka)
+    // Waxaan u isticmaalaynaa ID-ga transaction-ka si ay isku xirnaadaan markasta
+    const jeDocRef = doc(db, "journal_entries", txDocRef.id);
+    const jeData = {
+      referenceId: txDocRef.id,
+      description: description,
+      date: serverTimestamp(),
+      fy: new Date().getFullYear(), // Sanadka maaliyadeed (FY: 2026)
+      entries: [
+        {
+          accountId: chargedToAccountId,
+          accountName: toAccountData.accountName || "Salaries Expense",
+          debit: numericAmount,
+          credit: 0
+        },
+        {
+          accountId: paidFromAccountId,
+          accountName: fromAccountData.accountName || "salaama",
+          debit: 0,
+          credit: numericAmount
+        }
+      ]
+    };
+
+    transaction.set(jeDocRef, jeData, { merge: true });
+
     return txDocRef.id;
   });
 };
@@ -136,6 +164,10 @@ export const deleteSalaryTransactionService = async (id) => {
       transaction.update(toAccountRef, { balance: parseFloat(toSnap.data().balance || 0) - amount });
     }
 
+    // Tirtir transaction-ka iyo Journal Entry-gaba
     transaction.delete(txRef);
+    
+    const jeRef = doc(db, "journal_entries", id);
+    transaction.delete(jeRef);
   });
 };
