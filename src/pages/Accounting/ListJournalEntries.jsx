@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, CalendarDays, Receipt, Filter } from "lucide-react";
+import { Search, CalendarDays, Receipt } from "lucide-react";
 import useJournalEntries from "@/hooks/useJournalEntries";
 
 export default function ListJournalEntries() {
@@ -9,16 +9,29 @@ export default function ListJournalEntries() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
+  // Helper function oo si ammaan ah Firestore Timestamp ugu beddeleysa JS Date Object
+  const parseEntryDate = (dateField) => {
+    if (!dateField) return new Date();
+    if (typeof dateField.toDate === "function") return dateField.toDate();
+    if (dateField.seconds) return new Date(dateField.seconds * 1000);
+    return new Date(dateField);
+  };
+
   const filteredEntries = entries.filter(e => {
     const matchesSearch = e.description?.toLowerCase().includes(search.toLowerCase()) ||
                           e.id?.toLowerCase().includes(search.toLowerCase());
     
-    const entryDate = new Date(e.date);
+    // 🌟 Xisaabi taariikhda adoo u beddelaya JS Date si uu filtarku u saxmo
+    const entryDate = parseEntryDate(e.date);
+    
+    // Ka saar saacadaha (setHours) si isbarbardhiga taariikhda maalmuhu u saxmo
+    entryDate.setHours(0, 0, 0, 0);
+
     const matchesDate = (!startDate || entryDate >= new Date(startDate)) &&
                         (!endDate || entryDate <= new Date(endDate));
 
     return matchesSearch && matchesDate;
-  }).sort((a, b) => new Date(b.date) - new Date(a.date)); // Sort: Newest first
+  }).sort((a, b) => parseEntryDate(b.date) - parseEntryDate(a.date)); // Sort: Midka ugu cusub kor
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6 bg-slate-50 min-h-screen">
@@ -55,50 +68,62 @@ export default function ListJournalEntries() {
         ) : filteredEntries.length === 0 ? (
           <div className="text-center p-8 text-slate-400 bg-white rounded-xl border">No entries found.</div>
         ) : (
-          filteredEntries.map((entry) => (
-            <Card key={entry.id} className="overflow-hidden shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
-              {/* MASTER HEADER */}
-              <div className="bg-slate-50 px-4 py-3 border-b flex justify-between items-center text-xs">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2 text-blue-700 font-bold">
-                    <Receipt size={16} />
-                    <span className="font-mono">{entry.id.slice(-8).toUpperCase()}</span>
+          filteredEntries.map((entry) => {
+            // 🌟 Taariikhda halkan ugu beddel String si ammaan ah oo loo daabici karo
+            const displayDate = parseEntryDate(entry.date).toLocaleDateString("en-US", {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric'
+            });
+
+            return (
+              <Card key={entry.id} className="overflow-hidden shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+                {/* MASTER HEADER */}
+                <div className="bg-slate-50 px-4 py-3 border-b flex justify-between items-center text-xs">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 text-blue-700 font-bold">
+                      <Receipt size={16} />
+                      <span className="font-mono">{entry.id ? entry.id.slice(-8).toUpperCase() : "NEW"}</span>
+                    </div>
+                    {/* Halkan hadda waxay helaysaa String badbaado ah (displayDate) */}
+                    <div className="flex items-center gap-1 text-slate-500">
+                      <CalendarDays size={14} /> {displayDate}
+                    </div>
+                    <span className="font-semibold text-slate-800">{entry.description}</span>
                   </div>
-                  <div className="flex items-center gap-1 text-slate-500"><CalendarDays size={14} /> {entry.date}</div>
-                  <span className="font-semibold text-slate-800">{entry.description}</span>
+                  <div className="text-[10px] uppercase font-bold text-slate-400">
+                    FY: {entry.fiscalYear || entry.fy || parseEntryDate(entry.date).getFullYear()}
+                  </div>
                 </div>
-                <div className="text-[10px] uppercase font-bold text-slate-400">
-                  FY: {entry.fiscalYear || new Date(entry.date).getFullYear()}
-                </div>
-              </div>
-              
-              {/* BREAKDOWN */}
-              <CardContent className="p-0">
-                <table className="w-full text-xs text-left">
-                  <thead className="bg-slate-50/50 text-slate-500 uppercase text-[10px] font-bold">
-                    <tr>
-                      <th className="px-4 py-2">Account Title</th>
-                      <th className="px-4 py-2 text-right">Debit</th>
-                      <th className="px-4 py-2 text-right">Credit</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {entry.entries?.map((item, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-4 py-2 font-medium text-slate-700">{item.accountName || item.accountId}</td>
-                        <td className="px-4 py-2 text-right font-mono text-emerald-600 font-bold">
-                          {item.debit > 0 ? `$${Number(item.debit).toFixed(2)}` : "-"}
-                        </td>
-                        <td className="px-4 py-2 text-right font-mono text-blue-600 font-bold">
-                          {item.credit > 0 ? `$${Number(item.credit).toFixed(2)}` : "-"}
-                        </td>
+                
+                {/* BREAKDOWN */}
+                <CardContent className="p-0">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-slate-50/50 text-slate-500 uppercase text-[10px] font-bold">
+                      <tr>
+                        <th className="px-4 py-2">Account Title</th>
+                        <th className="px-4 py-2 text-right">Debit</th>
+                        <th className="px-4 py-2 text-right">Credit</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
-          ))
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {entry.entries?.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-4 py-2 font-medium text-slate-700">{item.accountName || item.accountId}</td>
+                          <td className="px-4 py-2 text-right font-mono text-emerald-600 font-bold">
+                            {item.debit > 0 ? `$${Number(item.debit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "-"}
+                          </td>
+                          <td className="px-4 py-2 text-right font-mono text-blue-600 font-bold">
+                            {item.credit > 0 ? `$${Number(item.credit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "-"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </CardContent>
+              </Card>
+            );
+          })
         )}
       </div>
     </div>
