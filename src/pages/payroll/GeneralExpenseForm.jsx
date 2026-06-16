@@ -14,9 +14,8 @@ import {
 import { ArrowUpRight, Building2, Landmark, AlertTriangle, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
-export default function GeneralExpenseForm({ accounts: propsAccounts = [], onSuccess, expenseToEdit, onClose, onExecute }) {
-  // Ka soo jiid accounts-ka hook-ga haddii props uusan jirin si uusan Dropdown-ku marnaba u hamin!
-  const { accounts: hookAccounts, addGeneralLedger } = useGeneralExpense();
+export default function GeneralExpenseForm({ accounts: propsAccounts = [], onSuccess, expenseToEdit, onClose }) {
+  const { accounts: hookAccounts, addTransaction } = useGeneralExpense();
   const accounts = propsAccounts.length > 0 ? propsAccounts : hookAccounts;
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -35,17 +34,15 @@ export default function GeneralExpenseForm({ accounts: propsAccounts = [], onSuc
   const assetAccounts = useMemo(() => {
     return (accounts || []).filter(a => 
       a?.accountType?.toLowerCase().includes("asset") || 
-      a?.accountType?.toLowerCase().includes("assets") || 
       a?.accountType?.toLowerCase().includes("bank") || 
       a?.category?.toLowerCase().includes("asset")
     );
   }, [accounts]);
 
-  // 2. Siftaynta Koontooyinka Expense (Ma jiro salary maadaama uu form gaar ah leeyahay)
+  // 2. Siftaynta Koontooyinka Expense
   const expenseAccounts = useMemo(() => {
     return (accounts || []).filter(a => 
       (a?.accountType?.toLowerCase().includes("expense") || 
-       a?.accountType?.toLowerCase().includes("expenses") || 
        a?.accountType?.toLowerCase().includes("cost") ||
        a?.category?.toLowerCase().includes("expense")) &&
       !a?.accountName?.toLowerCase().includes("salary")
@@ -61,7 +58,6 @@ export default function GeneralExpenseForm({ accounts: propsAccounts = [], onSuc
       setMonth(expenseToEdit.month || "June 2026");
       setDescription(expenseToEdit.description || "");
     } else {
-      // Default Asset Account
       if (assetAccounts.length > 0) {
         const defaultSalaam = assetAccounts.find(a => a?.accountName?.toLowerCase().includes("salaam") || a?.accountName?.toLowerCase().includes("business"));
         setPaidFromAccountId(defaultSalaam ? defaultSalaam.id : assetAccounts[0].id);
@@ -100,7 +96,7 @@ export default function GeneralExpenseForm({ accounts: propsAccounts = [], onSuc
     const parsedAmount = parseFloat(amount);
 
     if (!expenseToEdit && selectedPaidAccount && parseFloat(selectedPaidAccount.balance || 0) < parsedAmount) {
-      setAlertTitle("Haraaga Bankiga Ma Ku Filna (Insufficient Funds)");
+      setAlertTitle("Haraaga Bankiga Ma Ku Filna");
       setAlertDescription(`Account-ka ${selectedPaidAccount.accountName} haraaga dhex yaal waa $${parseFloat(selectedPaidAccount.balance).toLocaleString()}. Kuma filna in laga bixiyo kharashkan oo dhan $${parsedAmount.toLocaleString()}.`);
       setAlertOpen(true);
       return;
@@ -109,7 +105,8 @@ export default function GeneralExpenseForm({ accounts: propsAccounts = [], onSuc
     try {
       setIsSubmitting(true);
 
-      const payload = {
+      // Waxaan u diraynaa hook-ga, isagaana backend-ka toos u wacaya hadda
+      await addTransaction({
         id: expenseToEdit?.id || null, 
         amount: parsedAmount,
         paidFromAccountId, 
@@ -117,28 +114,9 @@ export default function GeneralExpenseForm({ accounts: propsAccounts = [], onSuc
         description,
         month,
         category: "Expense" 
-      };
+      });
 
-      let transactionId = null;
-      if (onExecute) {
-        // Waxay soo celinaysaa id-ga transaction-ka la kaydiyay
-        transactionId = await onExecute(payload);
-      }
-
-      // Halkan waxaan ku gelineynaa aruurinta 'journal_entries' sida SalaryForm-ka
-      if (typeof addGeneralLedger === "function") {
-        await addGeneralLedger({
-          referenceId: transactionId || expenseToEdit?.id || Date.now().toString(),
-          description: description,
-          month: month,
-          amount: parsedAmount,
-          creditAccountId: paidFromAccountId,  // CR Asset
-          debitAccountId: chargedToAccountId,   // DR Expense
-          timestamp: new Date()
-        });
-      }
-
-      toast.success(expenseToEdit ? "Kharashka waa la cusbooneysiiyay." : "Kharashka si guul leh ayaa loo kaydiyay.");
+      toast.success(expenseToEdit ? "Kharashka waa la cusbooneysiiyay." : "Kharashka si guul leh ayaa loo kaydiyay (Ledger-ka waa la durnay).");
       onSuccess?.();
       if (onClose) onClose();
 
