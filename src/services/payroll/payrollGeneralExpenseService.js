@@ -1,24 +1,25 @@
-import { collection, getDocs, doc, runTransaction, serverTimestamp } from "firebase/firestore";
+import { collection, getDocs, doc, runTransaction, serverTimestamp, deleteDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 const accountsRef = collection(db, "chart_of_accounts");
-const transactionsRef = collection(db, "transactions");
-const journalEntriesRef = collection(db, "journal_entries"); // Ururinta General Ledger-ka
+const paymentEntriesRef = collection(db, "payment_entries"); // Collection name sax ah
+const journalEntriesRef = collection(db, "journal_entries");
 
-// 1. Soo aqri Account-yada
 export const getAccountsService = async () => {
   const snap = await getDocs(accountsRef);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 };
 
-// 2. Soo aqri Kharashyada Guud
-export const getGeneralExpensesService = async () => {
-  const snap = await getDocs(transactionsRef);
+export const getPaymentEntriesService = async () => {
+  const snap = await getDocs(paymentEntriesRef);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 };
 
-// 🌟 3. Create/Update Expense iyo Journal Entry si wada jir ah (Atomic Transaction)
-export const createGeneralExpenseService = async (payload) => {
+export const deletePaymentEntryService = async (id) => {
+  await deleteDoc(doc(db, "payment_entries", id));
+};
+
+export const createPaymentEntryService = async (payload) => {
   const { id, amount, paidFromAccountId, chargedToAccountId, description, month, category } = payload;
   const numericAmount = parseFloat(amount);
 
@@ -26,10 +27,7 @@ export const createGeneralExpenseService = async (payload) => {
     const fromAccountRef = doc(db, "chart_of_accounts", paidFromAccountId);
     const toAccountRef = doc(db, "chart_of_accounts", chargedToAccountId);
 
-    const [fromSnap, toSnap] = await Promise.all([
-      transaction.get(fromAccountRef), 
-      transaction.get(toAccountRef)
-    ]);
+    const [fromSnap, toSnap] = await Promise.all([transaction.get(fromAccountRef), transaction.get(toAccountRef)]);
 
     if (!fromSnap.exists() || !toSnap.exists()) throw new Error("Account lama helin sxb!");
 
@@ -40,109 +38,52 @@ export const createGeneralExpenseService = async (payload) => {
     let existingJournalEntryId = null;
 
     if (id) {
-      const oldTxSnap = await transaction.get(doc(db, "transactions", id));
-      if (oldTxSnap.exists()) {
-        const oldData = oldTxSnap.data();
+      const oldEntrySnap = await transaction.get(doc(db, "payment_entries", id));
+      if (oldEntrySnap.exists()) {
+        const oldData = oldEntrySnap.data();
         oldAmount = parseFloat(oldData.amount || 0);
         existingJournalEntryId = oldData.journalEntryId || null;
       }
     }
 
-    // Double-Entry Balances (CR Asset decrease, DR Expense increase)
     const newFromBalance = parseFloat(fromAccountData.balance || 0) + oldAmount - numericAmount;
     const newToBalance = parseFloat(toAccountData.balance || 0) - oldAmount + numericAmount;
 
-    if (!id && newFromBalance < 0) {
-      throw new Error("INSUFFICIENT_FUNDS|Haraaga xisaabta kuma filna sxb!");
-    }
+    if (!id && newFromBalance < 0) throw new Error("INSUFFICIENT_FUNDS|Haraaga xisaabta kuma filna sxb!");
 
-    // 1. Cusbooneysii Balances-ka Accounts-ka
     transaction.update(fromAccountRef, { balance: newFromBalance });
     transaction.update(toAccountRef, { balance: newToBalance });
 
-    // 2. Diyaari Transaction Doc Reference
-    const txDocRef = id ? doc(db, "transactions", id) : doc(transactionsRef);
-    const finalTxId = txDocRef.id;
+    const entryDocRef = id ? doc(db, "payment_entries", id) : doc(paymentEntriesRef);
+    const jeDocRef = existingJournalEntryId ? doc(db, "journal_entries", existingJournalEntryId) : doc(journalEntriesRef);
 
-    // 3. Diyaari Journal Entry Doc Reference (General Ledger)
-    const jeDocRef = existingJournalEntryId 
-      ? doc(db, "journal_entries", existingJournalEntryId) 
-      : doc(journalEntriesRef);
-
-    // 4. Keydi Journal Entry (Double-Entry Breakdown)
     const journalEntryData = {
       date: serverTimestamp(),
-      description: description,
-      month: month,
+      description,
+      month,
       fiscalYear: 2026,
-      referenceId: finalTxId,
+      referenceId: entryDocRef.id,
       type: "Expense",
       entries: [
-        {
-          accountId: chargedToAccountId,
-          accountName: toAccountData.accountName || "Expense Account",
-          debit: numericAmount,
-          credit: 0
-        },
-        {
-          accountId: paidFromAccountId,
-          accountName: fromAccountData.accountName || "Asset Account",
-          debit: 0,
-          credit: numericAmount
-        }
+        { accountId: chargedToAccountId, accountName: toAccountData.accountName, debit: numericAmount, credit: 0 },
+        { accountId: paidFromAccountId, accountName: fromAccountData.accountName, debit: 0, credit: numericAmount }
       ]
     };
     transaction.set(jeDocRef, journalEntryData, { merge: true });
 
-    // 5. Keydi Diiwaanka Kharashka (Transactions Collection)
-    const txData = {
+    const entryData = {
       amount: numericAmount,
       paidFromAccountId,
       chargedToAccountId,
-      paidFromAccount: fromAccountData.accountName || "",
-      chargedToAccount: toAccountData.accountName || "",
+      paidFromAccount: fromAccountData.accountName,
+      chargedToAccount: toAccountData.accountName,
       description,
       month,
-      category: category || "General Expense",
-      journalEntryId: jeDocRef.id, // Ku xir Ledger-ka
+      category,
+      journalEntryId: jeDocRef.id,
       date: serverTimestamp()
     };
-
-    transaction.set(txDocRef, txData, { merge: true });
-    return finalTxId;
-  });
-};
-
-// 4. Tirtir Kharashka iyo Journal Entry-giisa
-export const deleteGeneralExpenseService = async (id) => {
-  if (!id) return;
-  return await runTransaction(db, async (transaction) => {
-    const txRef = doc(db, "transactions", id);
-    const txSnap = await transaction.get(txRef);
-    if (!txSnap.exists()) throw new Error("Transaction lama helin sxb!");
-
-    const txData = txSnap.data();
-    const amount = parseFloat(txData.amount || 0);
-
-    const fromAccountRef = doc(db, "chart_of_accounts", txData.paidFromAccountId);
-    const toAccountRef = doc(db, "chart_of_accounts", txData.chargedToAccountId);
-
-    const [fromSnap, toSnap] = await Promise.all([
-      transaction.get(fromAccountRef), 
-      transaction.get(toAccountRef)
-    ]);
-
-    // Dib u sax balances-ka (CR dib u soo celi, DR jar)
-    if (fromSnap.exists()) transaction.update(fromAccountRef, { balance: parseFloat(fromSnap.data().balance || 0) + amount });
-    if (toSnap.exists()) transaction.update(toAccountRef, { balance: parseFloat(toSnap.data().balance || 0) - amount });
-
-    // Tirtir Journal Entry-ga la xiriira haddii uu jiro
-    if (txData.journalEntryId) {
-      const jeRef = doc(db, "journal_entries", txData.journalEntryId);
-      transaction.delete(jeRef);
-    }
-
-    // Tirtir Transaction-ka kharashka
-    transaction.delete(txRef);
+    transaction.set(entryDocRef, entryData, { merge: true });
+    return entryDocRef.id;
   });
 };

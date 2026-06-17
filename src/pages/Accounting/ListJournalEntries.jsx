@@ -47,34 +47,19 @@ export default function ListJournalEntries() {
       }
     });
 
-    // Grants Auto Entries (Halkan baa laga beddelayaa magaca account-ka sxb)
+    // Grants Auto Entries
     grants.forEach(g => {
       const amt = Number(g.amount || 0);
       if (amt > 0) {
         if (!allEntries.some(e => e.id === `auto-grant-${g.id}`)) {
-          
-          // 🌟 DYNAMIC ACCOUNT NAME: Wuxuu soo qabanayaa account-kii lacagta lagu shubay ee rasmiga ah
-          const donorName = g.donorName || "Donor";
-          const activeBankAccount = g.receivingAccount || g.bankAccount || g.accountName || `Cash/Bank Account (${donorName})`;
-
           allEntries.push({
             id: `auto-grant-${g.id}`,
             docNo: `JE-GRANT`,
             date: g.createdAt || g.startDate || new Date().toISOString(),
             description: `💰 Grant Funding Received: ${g.grantName}`,
             items: [
-              { 
-                accountName: activeBankAccount, // Halkan hadda wuxuu soo daabacayaa magacii saxda ahaa ee lacagtu ku dhacday sxb
-                debit: amt, 
-                credit: 0, 
-                memo: `Funds successfully deposited into account from ${donorName}` 
-              },
-              { 
-                accountName: `Grant Revenue (${donorName})`, 
-                debit: 0, 
-                credit: amt, 
-                memo: "Recognized grant funding revenue" 
-              }
+              { accountName: `Bank / Receiving Account`, debit: amt, credit: 0, memo: `Funds deposited from ${g.donorName || "Donor"}` },
+              { accountName: `Grant Revenue (${g.donorName || "Donor"})`, debit: 0, credit: amt, memo: "Recognized grant funding revenue" }
             ]
           });
         }
@@ -162,6 +147,8 @@ export default function ListJournalEntries() {
             });
 
             const rows = entry.items || entry.entries || [];
+            
+            // 🌟 CALC TOTAL DEBITS & CREDITS FOR FOOTER
             const totalDebits = rows.reduce((sum, item) => sum + Number(item.debit || 0), 0);
             const totalCredits = rows.reduce((sum, item) => sum + Number(item.credit || 0), 0);
 
@@ -196,6 +183,7 @@ export default function ListJournalEntries() {
                         const isCredit = Number(item.credit || 0) > 0;
                         return (
                           <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
+                            {/* Account Name with Professional Indentation for Credits */}
                             <td className={`px-6 py-3 transition-all ${isCredit ? 'pl-14 bg-slate-50/20' : 'pl-6'}`}>
                               <div className="flex items-center gap-2">
                                 {isCredit ? (
@@ -207,15 +195,18 @@ export default function ListJournalEntries() {
                                   {item.accountName || item.accountId || "Unnamed Account"}
                                 </span>
                               </div>
+                              {/* Professional Memo Row */}
                               {item.memo && (
                                 <p className="text-[11px] text-slate-400 italic font-normal mt-0.5 pl-5">
                                   — {item.memo}
                                 </p>
                               )}
                             </td>
+                            {/* Debit Column */}
                             <td className="px-6 py-3 text-right font-mono text-emerald-600 font-bold text-sm bg-emerald-50/5">
                               {Number(item.debit || 0) > 0 ? `$${Number(item.debit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
                             </td>
+                            {/* Credit Column */}
                             <td className="px-6 py-3 text-right font-mono text-blue-600 font-bold text-sm bg-blue-50/5">
                               {isCredit ? `$${Number(item.credit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
                             </td>
@@ -223,6 +214,7 @@ export default function ListJournalEntries() {
                         );
                       })}
                     </tbody>
+                    {/* 🌟 ENTERPRISE FOOTER TOTALS */}
                     <tfoot className="bg-slate-50/60 border-t border-slate-200 font-mono text-xs text-slate-900 font-bold">
                       <tr>
                         <td className="px-6 py-3 text-right text-[11px] uppercase tracking-wider text-slate-400 font-sans">

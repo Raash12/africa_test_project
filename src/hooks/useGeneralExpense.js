@@ -1,65 +1,37 @@
 import { useState, useEffect } from "react";
 import { 
   getAccountsService, 
-  getGeneralExpensesService, 
-  createGeneralExpenseService, 
-  deleteGeneralExpenseService 
+  getPaymentEntriesService, 
+  createPaymentEntryService, 
+  deletePaymentEntryService 
 } from "@/services/payroll/payrollGeneralExpenseService";
 
 export function useGeneralExpense() {
   const [accounts, setAccounts] = useState([]);
-  const [transactions, setTransactions] = useState([]);
+  const [paymentEntries, setPaymentEntries] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const loadGeneralExpenseData = async () => {
+  const loadData = async () => {
     setLoading(true);
     try {
-      const [accs, txs] = await Promise.all([
-        getAccountsService(),
-        getGeneralExpensesService()
-      ]);
+      const [accs, entries] = await Promise.all([getAccountsService(), getPaymentEntriesService()]);
       setAccounts(accs || []);
-      setTransactions(txs || []);
+      setPaymentEntries(entries || []);
     } catch (error) {
-      console.error("Error loading general expense data:", error);
+      console.error("Error:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadGeneralExpenseData();
-  }, []);
-
-  // Function-kan wuxuu fulinayaa Journal Entry-ga cusub ee Firestore
-  const addTransaction = async (payload) => {
-    try {
-      const docId = await createGeneralExpenseService(payload);
-      await loadGeneralExpenseData(); // Dib u cusbooneysii UI-ga iyo List-iga
-      return docId;
-    } catch (error) {
-      console.error("Error in General Expense Journal Entry:", error);
-      throw error;
-    }
-  };
-
-  // Function-kan wuxuu tirtirayaa Journal Entry-ga isagoo xisaabtana saxaya
-  const deleteTransaction = async (id) => {
-    try {
-      await deleteGeneralExpenseService(id);
-      await loadGeneralExpenseData(); // Dib u cusbooneysii UI-ga
-    } catch (error) {
-      console.error("Error deleting general expense:", error);
-      throw error;
-    }
-  };
+  useEffect(() => { loadData(); }, []);
 
   return { 
     accounts, 
-    transactions, 
+    paymentEntries, // Halkan magacaan isticmaal
     loading, 
-    addTransaction, 
-    deleteTransaction, 
-    refresh: loadGeneralExpenseData 
+    addPaymentEntry: createPaymentEntryService, 
+    deletePaymentEntry: deletePaymentEntryService, 
+    refresh: loadData 
   };
 }

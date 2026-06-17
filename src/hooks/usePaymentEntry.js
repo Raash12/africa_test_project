@@ -1,6 +1,7 @@
 // hooks/usePaymentEntry.js
 import { useState, useEffect, useCallback } from "react";
-import { getPaymentEntries } from "@/services/payment/paymentEntryService";
+// Waxaan beddelnay magaca function-ka halkan
+import { getAllPaymentEntries } from "@/services/payment/paymentEntryService";
 
 export default function usePaymentEntry() {
   const [payments, setPayments] = useState([]);
@@ -11,7 +12,8 @@ export default function usePaymentEntry() {
     setLoading(true);
     setError(null);
     try {
-      const data = await getPaymentEntries();
+      // Halkan isticmaal magaca saxda ah
+      const data = await getAllPaymentEntries();
       setPayments(data);
     } catch (err) {
       setError(err.message || "Wax ka khaldamay soo dhuuqista lacag bixinta.");

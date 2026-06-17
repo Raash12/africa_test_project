@@ -15,7 +15,7 @@ import { ArrowUpRight, Building2, Landmark, AlertTriangle, Wallet } from "lucide
 import { toast } from "sonner";
 
 export default function GeneralExpenseForm({ accounts: propsAccounts = [], onSuccess, expenseToEdit, onClose }) {
-  const { accounts: hookAccounts, addTransaction } = useGeneralExpense();
+  const { accounts: hookAccounts, addPaymentEntry } = useGeneralExpense();
   const accounts = propsAccounts.length > 0 ? propsAccounts : hookAccounts;
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -30,7 +30,6 @@ export default function GeneralExpenseForm({ accounts: propsAccounts = [], onSuc
   const [alertTitle, setAlertTitle] = useState("");
   const [alertDescription, setAlertDescription] = useState("");
 
-  // 1. Siftaynta Koontooyinka Asset/Bank
   const assetAccounts = useMemo(() => {
     return (accounts || []).filter(a => 
       a?.accountType?.toLowerCase().includes("asset") || 
@@ -39,17 +38,15 @@ export default function GeneralExpenseForm({ accounts: propsAccounts = [], onSuc
     );
   }, [accounts]);
 
-  // 2. Siftaynta Koontooyinka Expense
+  // Halkan waxaa lagu saxay xogta "Expenses" ee database-kaaga
   const expenseAccounts = useMemo(() => {
     return (accounts || []).filter(a => 
-      (a?.accountType?.toLowerCase().includes("expense") || 
-       a?.accountType?.toLowerCase().includes("cost") ||
-       a?.category?.toLowerCase().includes("expense")) &&
-      !a?.accountName?.toLowerCase().includes("salary")
+      (a?.accountType?.includes("Expense") || 
+       a?.accountType?.includes("Expenses") || 
+       a?.category?.toLowerCase().includes("expense"))
     );
   }, [accounts]);
 
-  // 3. Toosinta xogta haddii ay tahay Edit ama New Form
   useEffect(() => {
     if (expenseToEdit) {
       setPaidFromAccountId(expenseToEdit.paidFromAccountId || ""); 
@@ -104,9 +101,7 @@ export default function GeneralExpenseForm({ accounts: propsAccounts = [], onSuc
 
     try {
       setIsSubmitting(true);
-
-      // Waxaan u diraynaa hook-ga, isagaana backend-ka toos u wacaya hadda
-      await addTransaction({
+      await addPaymentEntry({
         id: expenseToEdit?.id || null, 
         amount: parsedAmount,
         paidFromAccountId, 
@@ -116,12 +111,12 @@ export default function GeneralExpenseForm({ accounts: propsAccounts = [], onSuc
         category: "Expense" 
       });
 
-      toast.success(expenseToEdit ? "Kharashka waa la cusbooneysiiyay." : "Kharashka si guul leh ayaa loo kaydiyay (Ledger-ka waa la durnay).");
+      toast.success(expenseToEdit ? "Kharashka waa la cusbooneysiiyay." : "Kharashka si guul leh ayaa loo kaydiyay.");
       onSuccess?.();
       if (onClose) onClose();
 
     } catch (err) {
-      console.error("Transaction Error sxb:", err);
+      console.error("Payment Entry Error:", err);
       const cleanMessage = err.message?.includes("|") ? err.message.split("|")[1] : err.message;
       toast.error(cleanMessage || "Wuu guuldareystay kaydinta kharashka.");
     } finally {
@@ -150,7 +145,6 @@ export default function GeneralExpenseForm({ accounts: propsAccounts = [], onSuc
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Double Entry Visualizer Box */}
       <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 rounded-xl space-y-2">
         <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
           <Wallet size={12} /> Expected Double-Entry Impact
@@ -170,7 +164,6 @@ export default function GeneralExpenseForm({ accounts: propsAccounts = [], onSuc
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Dropdown 1: Paid From (Asset) */}
         <div className="space-y-1.5">
           <label className="text-[11px] font-bold uppercase text-slate-500 flex items-center gap-1">
             <Landmark size={12} /> Paid From (Asset Account)
@@ -187,7 +180,6 @@ export default function GeneralExpenseForm({ accounts: propsAccounts = [], onSuc
           </select>
         </div>
 
-        {/* Dropdown 2: Expense Category */}
         <div className="space-y-1.5">
           <label className="text-[11px] font-bold uppercase text-slate-500 flex items-center gap-1">
             <Building2 size={12} /> Expense Account (DR)
@@ -199,7 +191,7 @@ export default function GeneralExpenseForm({ accounts: propsAccounts = [], onSuc
           >
             <option value="">-- Choose Expense Account --</option>
             {expenseAccounts.map(a => (
-              <option key={a.id} value={a.id}>{a.accountCode || "5000"} - {a.accountName} (${parseFloat(a.balance || 0).toLocaleString()})</option>
+              <option key={a.id} value={a.id}>{a.accountCode || "5000"} - {a.accountName}</option>
             ))}
           </select>
         </div>
