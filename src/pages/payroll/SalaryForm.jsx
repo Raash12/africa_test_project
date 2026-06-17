@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Input } from "@/components/ui/input"; 
 import { Button } from "@/components/ui/button";
-import { X, DollarSign, Wallet, ArrowUpRight, Building2, Landmark, AlertTriangle } from "lucide-react";
+import { DollarSign, Wallet, ArrowUpRight, Building2, Landmark, AlertTriangle } from "lucide-react";
 import { useEmployees } from "@/hooks/useEmployees";
 import usePaymentEntry from "@/hooks/usePaymentEntry"; 
+import useAccounts from "@/hooks/useAccounts";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -15,9 +16,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-export default function SalaryForm({ accounts = [], onSuccess, salaryToEdit, onClose }) {
+export default function SalaryForm({ accounts: propsAccounts = [], onSuccess, salaryToEdit, onClose }) {
   const { employees = [] } = useEmployees();
   const { addPayment } = usePaymentEntry();
+  
+  const { accounts: fetchedAccounts } = useAccounts();
+  const accounts = propsAccounts.length > 0 ? propsAccounts : fetchedAccounts;
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [employeeId, setEmployeeId] = useState("");
@@ -109,7 +113,6 @@ export default function SalaryForm({ accounts = [], onSuccess, salaryToEdit, onC
 
     try {
       setIsSubmitting(true);
-      
       await addPayment({
         id: salaryToEdit?.id || null,
         type: "SALARY",
@@ -135,16 +138,16 @@ export default function SalaryForm({ accounts = [], onSuccess, salaryToEdit, onC
   };
 
   return (
-    <div className="space-y-5 pt-1 text-slate-900 dark:text-slate-100">
+    <div className="space-y-5 pt-1">
       <AlertDialog open={alertOpen} onOpenChange={setAlertOpen}>
-        <AlertDialogContent className="max-w-md bg-white dark:bg-slate-900 border rounded-xl p-5 shadow-2xl">
+        <AlertDialogContent className="max-w-md bg-white border rounded-xl p-5 shadow-2xl">
           <AlertDialogHeader className="flex flex-row items-start gap-3 space-y-0">
             <div className="p-2 bg-amber-50 rounded-lg text-amber-600 shrink-0 mt-0.5">
               <AlertTriangle size={20} />
             </div>
             <div className="space-y-1 text-left">
               <AlertDialogTitle className="text-base font-bold uppercase">{alertTitle}</AlertDialogTitle>
-              <AlertDialogDescription className="text-xs text-slate-600 dark:text-slate-400 font-medium leading-relaxed">{alertDescription}</AlertDialogDescription>
+              <AlertDialogDescription className="text-xs text-slate-600 font-medium leading-relaxed">{alertDescription}</AlertDialogDescription>
             </div>
           </AlertDialogHeader>
           <AlertDialogFooter className="mt-4">
@@ -155,7 +158,7 @@ export default function SalaryForm({ accounts = [], onSuccess, salaryToEdit, onC
         </AlertDialogContent>
       </AlertDialog>
 
-      <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border rounded-xl space-y-2">
+      <div className="p-3 bg-slate-50 border rounded-xl space-y-2">
         <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
           <Wallet size={12} /> Double-Entry Impact
         </h4>
@@ -171,29 +174,34 @@ export default function SalaryForm({ accounts = [], onSuccess, salaryToEdit, onC
         </div>
       </div>
 
+      {/* Employee Select */}
       <div className="space-y-1.5">
         <label className="text-[11px] font-bold uppercase text-slate-500 flex items-center gap-1">
           <DollarSign size={12} /> Select Employee / Shaqaalaha
         </label>
         <select
-          className={`w-full p-2 border rounded-lg bg-white dark:bg-slate-900 text-xs font-medium outline-none ${errors.employee ? "border-red-500" : "border-slate-200"}`}
+          className={`w-full p-2 border rounded-lg text-xs font-medium outline-none ${errors.employee ? "border-red-500" : "border-slate-200"}`}
           value={employeeId}
           onChange={(e) => { setEmployeeId(e.target.value); setErrors(prev => ({ ...prev, employee: false })); }}
         >
           <option value="" disabled>Choose Employee</option>
           {employees.map(e => (
-            <option key={e.id} value={e.id}>{e.name} ({e.title || "Staff"}) - ${parseFloat(e.salary || 0).toLocaleString()}</option>
+            <option key={e.id} value={e.id}>{e.name}</option>
           ))}
         </select>
+        {errors.employee && (
+          <p className="text-red-500 text-[10px] font-medium">Please select an employee</p>
+        )}
       </div>
 
+      {/* Account Selects */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <label className="text-[11px] font-bold uppercase text-slate-500 flex items-center gap-1">
             <Landmark size={12} /> Paid From (Asset)
           </label>
           <select
-            className={`w-full p-2 border rounded-lg bg-white dark:bg-slate-900 text-xs font-medium outline-none ${errors.paidFromAccount ? "border-red-500" : "border-slate-200"}`}
+            className={`w-full p-2 border rounded-lg text-xs font-medium outline-none ${errors.paidFromAccount ? "border-red-500" : "border-slate-200"}`}
             value={paidFromAccountId}
             onChange={(e) => { setPaidFromAccountId(e.target.value); setErrors(prev => ({ ...prev, paidFromAccount: false })); }}
           >
@@ -202,6 +210,9 @@ export default function SalaryForm({ accounts = [], onSuccess, salaryToEdit, onC
               <option key={a.id} value={a.id}>{a.accountName} (${parseFloat(a.balance || 0).toLocaleString()})</option>
             ))}
           </select>
+          {errors.paidFromAccount && (
+            <p className="text-red-500 text-[10px] font-medium">Please select payment source</p>
+          )}
         </div>
 
         <div className="space-y-1.5">
@@ -209,7 +220,7 @@ export default function SalaryForm({ accounts = [], onSuccess, salaryToEdit, onC
             <Building2 size={12} /> Charge Expense To
           </label>
           <select
-            className={`w-full p-2 border rounded-lg bg-white dark:bg-slate-900 text-xs font-medium outline-none ${errors.chargedToAccount ? "border-red-500" : "border-slate-200"}`}
+            className={`w-full p-2 border rounded-lg text-xs font-medium outline-none ${errors.chargedToAccount ? "border-red-500" : "border-slate-200"}`}
             value={chargedToAccountId}
             onChange={(e) => { setChargedToAccountId(e.target.value); setErrors(prev => ({ ...prev, chargedToAccount: false })); }}
           >
@@ -218,14 +229,18 @@ export default function SalaryForm({ accounts = [], onSuccess, salaryToEdit, onC
               <option key={a.id} value={a.id}>{a.accountName}</option>
             ))}
           </select>
+          {errors.chargedToAccount && (
+            <p className="text-red-500 text-[10px] font-medium">Please select expense account</p>
+          )}
         </div>
       </div>
 
+      {/* Month & Amount */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <label className="text-[11px] font-bold uppercase text-slate-500">Salary Month</label>
           <select
-            className="w-full p-2 border border-slate-200 rounded-lg bg-white dark:bg-slate-900 text-xs font-medium outline-none"
+            className="w-full p-2 border border-slate-200 rounded-lg text-xs font-medium outline-none"
             value={month}
             onChange={(e) => setMonth(e.target.value)}
           >
@@ -238,22 +253,29 @@ export default function SalaryForm({ accounts = [], onSuccess, salaryToEdit, onC
           <label className="text-[11px] font-bold uppercase text-slate-500">Amount ($)</label>
           <Input 
             type="number" 
-            className={`text-xs font-semibold h-[38px] dark:bg-slate-900 ${errors.amount ? "border-red-500" : "border-slate-200"}`} 
+            className={`text-xs font-semibold h-[38px] ${errors.amount ? "border-red-500" : "border-slate-200"}`} 
             placeholder="0.00"
             value={amount} 
             onChange={(e) => { setAmount(e.target.value); setErrors(prev => ({ ...prev, amount: false })); }} 
           />
+          {errors.amount && (
+            <p className="text-red-500 text-[10px] font-medium">Please enter valid amount</p>
+          )}
         </div>
       </div>
 
+      {/* Description */}
       <div className="space-y-1.5">
         <label className="text-[11px] font-bold uppercase text-slate-500">Narration / Details</label>
         <Input 
-          className={`text-xs h-[38px] dark:bg-slate-900 ${errors.description ? "border-red-500" : "border-slate-200"}`} 
+          className={`text-xs h-[38px] ${errors.description ? "border-red-500" : "border-slate-200"}`} 
           placeholder="Salary description" 
           value={description} 
           onChange={(e) => { setDescription(e.target.value); setErrors(prev => ({ ...prev, description: false })); }} 
         />
+        {errors.description && (
+          <p className="text-red-500 text-[10px] font-medium">Please enter description</p>
+        )}
       </div>
 
       <div className="pt-2 flex gap-2 justify-end border-t border-slate-100">
