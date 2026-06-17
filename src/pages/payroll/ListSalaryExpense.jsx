@@ -23,12 +23,13 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 
-import { useSalary } from "@/hooks/useSalary"; 
+import usePaymentEntry from "@/hooks/usePaymentEntry"; // Waxaan u baddelnay usePaymentEntry
 import SalaryForm from "./SalaryForm"; 
 
-export default function ListSalaryExpense() {
-  // Hook-ga wuxuu hadda soo celinayaa xogta laga soo qaaday payment_entries
-  const { paymentEntries = [], loading, refresh, deletePaymentEntry } = useSalary();
+export default function ListSalaryExpense({ accounts = [] }) {
+  // Halkan waxaan uga soo baxsanay xogta guud ee usePaymentEntry
+  const { expenses: paymentEntries = [], loading, refreshPayments: refresh, removePayment: deletePaymentEntry } = usePaymentEntry();
+  
   const [isOpen, setIsOpen] = useState(false);
   const [salaryToEdit, setSalaryToEdit] = useState(null);
   const [search, setSearch] = useState("");
@@ -53,7 +54,7 @@ export default function ListSalaryExpense() {
     try {
       await deletePaymentEntry(salaryToDelete);
       toast.success("Salary transaction deleted successfully.");
-      refresh(); // Dib u cusboonaysii xogta
+      refresh(); 
     } catch (error) {
       toast.error("Failed to delete the transaction. Please try again.");
     } finally {
@@ -67,14 +68,13 @@ export default function ListSalaryExpense() {
     setSalaryToEdit(null);
   };
 
-  // Filter-ka waxaa hadda si toos ah loo adeegsaday paymentEntries (payment_entries)
   const filteredSalaries = useMemo(() => {
     if (!paymentEntries || !Array.isArray(paymentEntries)) return [];
 
+    // Waxaan miirnaa kaliya kuwa noocoodu yahay SALARY ama category-gu yahay Salary
     const validSalaries = paymentEntries.filter((t) => {
       if (!t) return false;
-      // Hubinta in category-gu yahay "Salary"
-      return t.category && t.category.trim().toLowerCase() === "salary";
+      return (t.type === "SALARY" || (t.category && t.category.trim().toLowerCase() === "salary"));
     });
 
     const searchLower = search.trim().toLowerCase();
@@ -98,7 +98,7 @@ export default function ListSalaryExpense() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
         <Loader2 className="h-8 w-8 animate-spin text-[#1e3a8a]" />
-        <p className="text-sm text-slate-500 animate-pulse">Loading payment_entries payroll...</p>
+        <p className="text-sm text-slate-500 animate-pulse">Loading payroll entries...</p>
       </div>
     );
   }
@@ -109,7 +109,7 @@ export default function ListSalaryExpense() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-xl border-l-8 border-l-[#1e3a8a] shadow-sm">
         <div>
           <h1 className="text-2xl font-bold uppercase tracking-tight">Salary Expenses</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Track and Manage Staff Payroll from payment_entries</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Track and Manage Staff Payroll</p>
         </div>
         <Button onClick={() => { setSalaryToEdit(null); setIsOpen(true); }} className="bg-[#1e3a8a] hover:bg-[#172554] text-white font-bold text-xs shadow-sm">
           <Plus size={16} className="mr-2" /> Add New Salary
@@ -146,7 +146,7 @@ export default function ListSalaryExpense() {
                   <td colSpan="6" className="p-12 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center">
                       <User className="h-6 w-6 text-slate-400 mb-2" />
-                      <span className="font-semibold text-xs">No salary records found in payment_entries</span>
+                      <span className="font-semibold text-xs">No salary records found</span>
                     </div>
                   </td>
                 </tr>
@@ -156,7 +156,7 @@ export default function ListSalaryExpense() {
                     <td className="p-3.5 whitespace-nowrap text-slate-500">
                       <div className="flex items-center gap-1.5">
                         <Calendar size={13} className="text-slate-400" />
-                        {salary.date ? new Date(salary.date.seconds * 1000).toLocaleDateString() : "—"}
+                        {salary.date ? new Date(salary.date.seconds ? salary.date.seconds * 1000 : salary.date).toLocaleDateString() : "—"}
                       </div>
                     </td>
                     <td className="p-3.5">
@@ -205,7 +205,7 @@ export default function ListSalaryExpense() {
           <AlertDialogHeader>
             <AlertDialogTitle className="text-sm font-bold">Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription className="text-xs">
-              This action will remove the record from payment_entries and revert accounting balances.
+              This action will remove the record and revert accounting balances.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="text-xs">
@@ -235,12 +235,18 @@ export default function ListSalaryExpense() {
         </Pagination>
       )}
 
-      <SalaryForm 
-        isOpen={isOpen} 
-        onClose={handleCloseModal} 
-        refresh={refresh} 
-        salaryToEdit={salaryToEdit}
-      />
+      {isOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-lg w-full max-w-md">
+            <SalaryForm 
+              accounts={accounts} 
+              onSuccess={handleCloseModal} 
+              salaryToEdit={salaryToEdit}
+              onClose={handleCloseModal}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

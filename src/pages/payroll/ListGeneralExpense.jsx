@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Edit2, Trash2, Plus, Search, Calendar, Loader2, ArrowUpRight } from "lucide-react";
+import { Edit2, Trash2, Plus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -15,11 +15,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useGeneralExpense } from "@/hooks/useGeneralExpense";
+import usePaymentEntry from "@/hooks/usePaymentEntry"; // Halkan waxaa lagu saxay Hook-ga rasmiga ah
 import GeneralExpenseForm from "./GeneralExpenseForm"; 
 
-export default function ListGeneralExpense() {
-  const { paymentEntries = [], accounts = [], loading, addPaymentEntry, deletePaymentEntry, refresh } = useGeneralExpense();
+export default function ListGeneralExpense({ accounts = [] }) {
+  // Waxaan halkan toos uga soo baxsanay 'expenses' iyo 'removePayment'
+  const { expenses: filteredExpenses, loading, removePayment, refreshPayments } = usePaymentEntry();
   
   const [isOpen, setIsOpen] = useState(false);
   const [expenseToEdit, setExpenseToEdit] = useState(null);
@@ -36,11 +37,18 @@ export default function ListGeneralExpense() {
     return new Date(dateField);
   };
 
+  const accountMap = useMemo(() => {
+    return accounts.reduce((acc, curr) => {
+      const id = curr.id || curr.docId;
+      if (id) acc[id] = curr.accountName || "Unnamed Account";
+      return acc;
+    }, {});
+  }, [accounts]);
+
   const executeDelete = async () => {
     try {
-      await deletePaymentEntry(expenseToDelete);
+      await removePayment(expenseToDelete);
       toast.success("Transaction deleted successfully.");
-      refresh();
     } catch (error) {
       toast.error("Failed to delete transaction.");
     } finally {
@@ -49,32 +57,24 @@ export default function ListGeneralExpense() {
     }
   };
 
-  const filteredExpenses = useMemo(() => {
-    if (!paymentEntries || !Array.isArray(paymentEntries)) return [];
-
-    // DEBUG: Halkan ka arag Console-ka waxa ku jira xogtaada
-    // console.log("Dhammaan Payment Entries:", paymentEntries);
-
-    // Waxaan u oggolaanay inuu soo saaro haddii uu yahay 'expense' ama 'general_expense'
-    const validExpenses = paymentEntries.filter((t) => {
-      const category = (t.category || "").toLowerCase();
-      const type = (t.type || "").toLowerCase();
-      return category === "expense" || type === "expense" || category === "general_expense";
-    });
-
+  const searchedExpenses = useMemo(() => {
     const searchLower = search.trim().toLowerCase();
-    
-    return validExpenses
+    return filteredExpenses
+      .map((t) => {
+        const paidFrom = t.paidFromAccount || accountMap[t.paidFromAccountId] || "Unknown Cash/Bank";
+        const chargedTo = t.chargedToAccount || accountMap[t.chargedToAccountId] || "Unknown Expense Account";
+        return { ...t, resolvedPaidFrom: paidFrom, resolvedChargedTo: chargedTo };
+      })
       .filter((t) => 
         (t.description || "").toLowerCase().includes(searchLower) ||
-        (t.chargedToAccount || "").toLowerCase().includes(searchLower) ||
-        (t.paidFromAccount || "").toLowerCase().includes(searchLower)
+        (t.resolvedChargedTo || "").toLowerCase().includes(searchLower) ||
+        (t.resolvedPaidFrom || "").toLowerCase().includes(searchLower)
       )
       .sort((a, b) => parseTransactionDate(b.date) - parseTransactionDate(a.date));
-  }, [paymentEntries, search]);
+  }, [filteredExpenses, search, accountMap]);
 
-  const totalPages = Math.max(Math.ceil(filteredExpenses.length / itemsPerPage), 1);
-  const paginatedExpenses = filteredExpenses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const totalPages = Math.max(Math.ceil(searchedExpenses.length / itemsPerPage), 1);
+  const paginatedExpenses = searchedExpenses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   if (loading) {
     return (
@@ -99,7 +99,7 @@ export default function ListGeneralExpense() {
       <input
         type="text"
         placeholder="Search description, accounts..."
-        className="w-full p-2 border rounded-lg text-xs"
+        className="w-full p-2 border rounded-lg text-xs mb-2"
         value={search}
         onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
       />
@@ -122,10 +122,10 @@ export default function ListGeneralExpense() {
                   <tr key={exp.id} className="hover:bg-slate-50">
                     <td className="p-3 font-bold">{exp.description}</td>
                     <td className="p-3">
-                      <div className="text-amber-700">CR: {exp.paidFromAccount}</div>
-                      <div className="text-emerald-700">DR: {exp.chargedToAccount}</div>
+                      <div className="text-amber-700 font-medium">CR: {exp.resolvedPaidFrom}</div>
+                      <div className="text-emerald-700 font-medium">DR: {exp.resolvedChargedTo}</div>
                     </td>
-                    <td className="p-3"><Badge variant="secondary">{exp.month}</Badge></td>
+                    <td className="p-3"><Badge variant="secondary">{exp.month || "N/A"}</Badge></td>
                     <td className="p-3 text-right font-bold text-red-600">${Number(exp.amount || 0).toLocaleString()}</td>
                     <td className="p-3 text-center">
                       <div className="flex justify-center gap-2">
@@ -143,6 +143,14 @@ export default function ListGeneralExpense() {
         </CardContent>
       </Card>
 
+      {totalPages > 1 && (
+        <div className="flex justify-end gap-2 text-xs font-medium">
+          <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1}>Prev</Button>
+          <span className="p-2">Page {currentPage} of {totalPages}</span>
+          <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages}>Next</Button>
+        </div>
+      )}
+
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -151,7 +159,7 @@ export default function ListGeneralExpense() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={executeDelete} className="bg-red-600">Delete</AlertDialogAction>
+            <AlertDialogAction onClick={executeDelete} className="bg-red-600 text-white">Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -161,8 +169,7 @@ export default function ListGeneralExpense() {
           <div className="bg-white p-6 rounded-lg w-full max-w-md">
             <GeneralExpenseForm 
               accounts={accounts} 
-              onExecute={addPaymentEntry} 
-              onSuccess={() => { setIsOpen(false); refresh(); }}
+              onSuccess={() => { setIsOpen(false); refreshPayments(); }}
               expenseToEdit={expenseToEdit}
               onClose={() => setIsOpen(false)}
             />

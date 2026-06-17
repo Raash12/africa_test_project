@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useGeneralExpense } from "@/hooks/useGeneralExpense"; 
+import usePaymentEntry from "@/hooks/usePaymentEntry"; // Kani waa kan kaliya ee aan u baahanahay
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,9 +14,9 @@ import {
 import { ArrowUpRight, Building2, Landmark, AlertTriangle, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
-export default function GeneralExpenseForm({ accounts: propsAccounts = [], onSuccess, expenseToEdit, onClose }) {
-  const { accounts: hookAccounts, addPaymentEntry } = useGeneralExpense();
-  const accounts = propsAccounts.length > 0 ? propsAccounts : hookAccounts;
+export default function GeneralExpenseForm({ accounts = [], onSuccess, expenseToEdit, onClose }) {
+  // Waxaan ka soo dhuuqnay addPayment hook-gii midaysnaa
+  const { addPayment } = usePaymentEntry();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paidFromAccountId, setPaidFromAccountId] = useState(""); 
@@ -38,7 +38,6 @@ export default function GeneralExpenseForm({ accounts: propsAccounts = [], onSuc
     );
   }, [accounts]);
 
-  // Halkan waxaa lagu saxay xogta "Expenses" ee database-kaaga
   const expenseAccounts = useMemo(() => {
     return (accounts || []).filter(a => 
       (a?.accountType?.includes("Expense") || 
@@ -101,8 +100,9 @@ export default function GeneralExpenseForm({ accounts: propsAccounts = [], onSuc
 
     try {
       setIsSubmitting(true);
-      await addPaymentEntry({
+      await addPayment({
         id: expenseToEdit?.id || null, 
+        type: "GENERAL_EXPENSE", 
         amount: parsedAmount,
         paidFromAccountId, 
         chargedToAccountId, 
