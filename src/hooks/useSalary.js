@@ -1,68 +1,37 @@
 import { useState, useEffect } from "react";
 import { 
   getAccountsService, 
-  getSalaryTransactionsService, 
-  createSalaryTransactionService,
-  deleteSalaryTransactionService
+  getPaymentEntriesService, 
+  createPaymentEntryService, 
+  deletePaymentEntryService 
 } from "@/services/payroll/payrollSalaryServices";
 
 export function useSalary() {
   const [accounts, setAccounts] = useState([]);
-  const [transactions, setTransactions] = useState([]);
+  const [paymentEntries, setPaymentEntries] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const loadSalaryData = async () => {
+  const loadData = async () => {
     setLoading(true);
     try {
-      const [accs, txs] = await Promise.all([
-        getAccountsService(), 
-        getSalaryTransactionsService()
-      ]);
-      
-      // 🌟 DEBUGGING: Xaqiiji in xogta ay si sax ah kuugu soo dhacayso
-      console.log("🔥 FIRESTORE RAW SALARY TRANSACTIONS:", txs);
-      
+      const [accs, entries] = await Promise.all([getAccountsService(), getPaymentEntriesService()]);
       setAccounts(accs || []);
-      setTransactions(txs || []);
+      setPaymentEntries(entries || []);
     } catch (error) {
-      console.error("Error loading salary bookkeeping data:", error);
+      console.error("Error:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadSalaryData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
-  // Function-ka lagu daro ama lagu beddelo transaction
-  const addTransaction = async (payload) => {
-    try {
-      await createSalaryTransactionService(payload);
-      await loadSalaryData(); // Dib u soo aqri xogta cusub
-    } catch (error) {
-      console.error("Error adding salary transaction:", error);
-      throw error;
-    }
-  };
-
-  // Function-ka lagu tirtiro transaction
-  const deleteTransaction = async (id) => {
-    try {
-      await deleteSalaryTransactionService(id);
-      await loadSalaryData(); // Dib u soo aqri xogta cusub
-    } catch (error) {
-      console.error("Error deleting salary transaction:", error);
-      throw error;
-    }
-  };
-
-  return {
-    accounts,
-    transactions,
-    loading,
-    addTransaction,
-    deleteTransaction,
-    refresh: loadSalaryData
+  return { 
+    accounts, 
+    paymentEntries, 
+    loading, 
+    addPaymentEntry: createPaymentEntryService, 
+    deletePaymentEntry: deletePaymentEntryService, 
+    refresh: loadData 
   };
 }

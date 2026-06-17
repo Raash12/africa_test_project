@@ -27,7 +27,8 @@ export default function SalaryForm({ isOpen, onClose, refresh, salaryToEdit }) {
   if (!isOpen) return null;
 
   const { employees = [] } = useEmployees();
-  const { accounts = [], addTransaction } = useSalary();
+  // Hubi in hook-gaaga useSalary uu u soo dirayo addPaymentEntry koodka 'payment_entries'
+  const { accounts = [], addPaymentEntry } = useSalary();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
@@ -42,7 +43,6 @@ export default function SalaryForm({ isOpen, onClose, refresh, salaryToEdit }) {
   const [alertTitle, setAlertTitle] = useState("");
   const [alertDescription, setAlertDescription] = useState("");
 
-  // 1. Filter Asset & Expense Accounts
   const assetAccounts = useMemo(() => {
     return (accounts || []).filter(a => 
       a?.accountType?.toLowerCase().includes("asset") || 
@@ -60,7 +60,6 @@ export default function SalaryForm({ isOpen, onClose, refresh, salaryToEdit }) {
     );
   }, [accounts]);
 
-  // 2. Set Default Accounts or Load Edit Data
   useEffect(() => {
     if (salaryToEdit) {
       setSelectedEmployeeId(salaryToEdit.employeeId || "");
@@ -78,13 +77,9 @@ export default function SalaryForm({ isOpen, onClose, refresh, salaryToEdit }) {
         const defaultSalary = expenseAccounts.find(a => a?.accountName?.toLowerCase().includes("salary"));
         setChargedToAccountId(defaultSalary ? defaultSalary.id : expenseAccounts[0].id);
       }
-      setSelectedEmployeeId("");
-      setAmount("");
-      setDescription("");
     }
   }, [salaryToEdit, assetAccounts, expenseAccounts, isOpen]);
 
-  // 3. Auto-fill Employee info on selection
   useEffect(() => {
     if (selectedEmployeeId && !salaryToEdit) {
       const emp = employees.find(e => e.id === selectedEmployeeId);
@@ -93,26 +88,14 @@ export default function SalaryForm({ isOpen, onClose, refresh, salaryToEdit }) {
         setDescription(`Salary payment for ${month} - ${emp.fullName}`);
       }
     }
-    if (selectedEmployeeId) setErrors(prev => ({ ...prev, employee: false }));
   }, [selectedEmployeeId, month, employees, salaryToEdit]);
 
   const selectedPaidAccount = accounts.find(a => a.id === paidFromAccountId);
   const selectedChargedAccount = accounts.find(a => a.id === chargedToAccountId);
 
-  const validateForm = () => {
-    const localErrors = {};
-    if (!paidFromAccountId) localErrors.paidFromAccount = true;
-    if (!chargedToAccountId) localErrors.chargedToAccount = true;
-    if (!selectedEmployeeId) localErrors.employee = true;
-    if (!amount || parseFloat(amount) <= 0) localErrors.amount = true;
-    if (!description.trim()) localErrors.description = true;
-
-    setErrors(localErrors);
-    return Object.keys(localErrors).length === 0;
-  };
-
   const handleSubmit = async () => {
-    if (!validateForm()) {
+    // Validate
+    if (!paidFromAccountId || !chargedToAccountId || !selectedEmployeeId || !amount) {
       return toast.error("Please fill in all the required fields.");
     }
     
@@ -120,7 +103,7 @@ export default function SalaryForm({ isOpen, onClose, refresh, salaryToEdit }) {
 
     if (!salaryToEdit && selectedPaidAccount && parseFloat(selectedPaidAccount.balance || 0) < parsedAmount) {
       setAlertTitle("Insufficient Funds");
-      setAlertDescription(`The account ${selectedPaidAccount.accountName} has a current balance of $${parseFloat(selectedPaidAccount.balance).toLocaleString()}. It is not enough to process this salary payment of $${parsedAmount.toLocaleString()}.`);
+      setAlertDescription(`The account ${selectedPaidAccount.accountName} has insufficient balance.`);
       setAlertOpen(true);
       return;
     }
@@ -129,8 +112,8 @@ export default function SalaryForm({ isOpen, onClose, refresh, salaryToEdit }) {
       setIsSubmitting(true);
       const emp = employees.find(e => e.id === selectedEmployeeId);
 
-      // Waxaan u diraynaa xogta oo kaliya, backend ayaa Journal Entry-ga abuuraya hadda
-      await addTransaction({
+      // Halkan magaca collection-ka waa 'payment_entries'
+      await addPaymentEntry({
         id: salaryToEdit?.id || null, 
         amount: parsedAmount,
         paidFromAccountId,
@@ -142,19 +125,11 @@ export default function SalaryForm({ isOpen, onClose, refresh, salaryToEdit }) {
         employeeName: emp?.fullName || salaryToEdit?.employeeName || ""
       });
 
-      toast.success(salaryToEdit ? "Salary record updated successfully." : "Salary transaction processed successfully.");
+      toast.success("Salary transaction processed successfully.");
       if (refresh) await refresh();
       onClose();
     } catch (err) {
-      console.error(err);
-      const errorMsg = err.message || "";
-      if (errorMsg.includes("DUPLICATE_SALARY") || errorMsg.includes("DUPLICATE_PAYROLL")) {
-        setAlertTitle("Duplicate Entry Detected");
-        setAlertDescription(errorMsg.split("|")[1] || "A salary record for this employee has already been processed for this month.");
-        setAlertOpen(true);
-      } else {
-        toast.error("Failed to process salary payment. Please try again.");
-      }
+      toast.error("Failed to process transaction.");
     } finally {
       setIsSubmitting(false);
     }

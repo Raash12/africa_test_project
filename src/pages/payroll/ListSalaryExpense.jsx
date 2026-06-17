@@ -27,7 +27,8 @@ import { useSalary } from "@/hooks/useSalary";
 import SalaryForm from "./SalaryForm"; 
 
 export default function ListSalaryExpense() {
-  const { transactions = [], loading, refresh, deleteTransaction } = useSalary();
+  // Hook-ga wuxuu hadda soo celinayaa xogta laga soo qaaday payment_entries
+  const { paymentEntries = [], loading, refresh, deletePaymentEntry } = useSalary();
   const [isOpen, setIsOpen] = useState(false);
   const [salaryToEdit, setSalaryToEdit] = useState(null);
   const [search, setSearch] = useState("");
@@ -37,14 +38,6 @@ export default function ListSalaryExpense() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
-
-  // 🌟 Helper function oo Firestore Timestamp u beddeleysa JS Date si ammaan ah
-  const parseTransactionDate = (dateField) => {
-    if (!dateField) return new Date(0); // Haddii aysan taariikh jirin hoos u ridi
-    if (typeof dateField.toDate === "function") return dateField.toDate();
-    if (dateField.seconds) return new Date(dateField.seconds * 1000);
-    return new Date(dateField);
-  };
 
   const handleEdit = (salary) => {
     setSalaryToEdit(salary);
@@ -58,8 +51,9 @@ export default function ListSalaryExpense() {
 
   const executeDelete = async () => {
     try {
-      await deleteTransaction(salaryToDelete);
+      await deletePaymentEntry(salaryToDelete);
       toast.success("Salary transaction deleted successfully.");
+      refresh(); // Dib u cusboonaysii xogta
     } catch (error) {
       toast.error("Failed to delete the transaction. Please try again.");
     } finally {
@@ -73,37 +67,26 @@ export default function ListSalaryExpense() {
     setSalaryToEdit(null);
   };
 
+  // Filter-ka waxaa hadda si toos ah loo adeegsaday paymentEntries (payment_entries)
   const filteredSalaries = useMemo(() => {
-    if (!transactions || !Array.isArray(transactions)) return [];
+    if (!paymentEntries || !Array.isArray(paymentEntries)) return [];
 
-    // 1. Sifee oo kaliya kuwa Salary ah
-    const validSalaries = transactions.filter((t) => {
+    const validSalaries = paymentEntries.filter((t) => {
       if (!t) return false;
-      const hasSalaryCategory = t.category && t.category.trim().toLowerCase() === "salary";
-      const looksLikeSalary = t.employeeName && (
-        (t.description || "").toLowerCase().includes("mushaarka") || 
-        (t.description || "").toLowerCase().includes("salary")
-      );
-      return hasSalaryCategory || looksLikeSalary;
+      // Hubinta in category-gu yahay "Salary"
+      return t.category && t.category.trim().toLowerCase() === "salary";
     });
 
-    // 2. Filter-ka raadinta (Search)
     const searchLower = search.trim().toLowerCase();
-    const searchedList = !searchLower 
-      ? validSalaries 
-      : validSalaries.filter((t) => {
-          const empName = (t.employeeName || "").toLowerCase();
-          const empId = (t.employeeId || "").toLowerCase();
-          const desc = (t.description || "").toLowerCase();
-          return empName.includes(searchLower) || empId.includes(searchLower) || desc.includes(searchLower);
-        });
+    if (!searchLower) return validSalaries;
 
-    // 🌟 3. KALA HORREYN (SORT): Midka ugu dambeeyay/ugu cusub ha ugu dhex baxo kor (Newest First)
-    return searchedList.sort((a, b) => {
-      return parseTransactionDate(b.date) - parseTransactionDate(a.date);
+    return validSalaries.filter((t) => {
+      const empName = (t.employeeName || "").toLowerCase();
+      const empId = (t.employeeId || "").toLowerCase();
+      const desc = (t.description || "").toLowerCase();
+      return empName.includes(searchLower) || empId.includes(searchLower) || desc.includes(searchLower);
     });
-
-  }, [transactions, search]);
+  }, [paymentEntries, search]);
 
   const totalPages = Math.max(Math.ceil(filteredSalaries.length / itemsPerPage), 1);
   const paginatedSalaries = useMemo(() => {
@@ -115,7 +98,7 @@ export default function ListSalaryExpense() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
         <Loader2 className="h-8 w-8 animate-spin text-[#1e3a8a]" />
-        <p className="text-sm text-slate-500 animate-pulse">Loading payroll expenses...</p>
+        <p className="text-sm text-slate-500 animate-pulse">Loading payment_entries payroll...</p>
       </div>
     );
   }
@@ -126,7 +109,7 @@ export default function ListSalaryExpense() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-xl border-l-8 border-l-[#1e3a8a] shadow-sm">
         <div>
           <h1 className="text-2xl font-bold uppercase tracking-tight">Salary Expenses</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Track and Manage Africa Ihsan Aid Staff Payroll Bookkeeping</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Track and Manage Staff Payroll from payment_entries</p>
         </div>
         <Button onClick={() => { setSalaryToEdit(null); setIsOpen(true); }} className="bg-[#1e3a8a] hover:bg-[#172554] text-white font-bold text-xs shadow-sm">
           <Plus size={16} className="mr-2" /> Add New Salary
@@ -163,61 +146,54 @@ export default function ListSalaryExpense() {
                   <td colSpan="6" className="p-12 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center">
                       <User className="h-6 w-6 text-slate-400 mb-2" />
-                      <span className="font-semibold text-xs">No salary disbursements found</span>
+                      <span className="font-semibold text-xs">No salary records found in payment_entries</span>
                     </div>
                   </td>
                 </tr>
               ) : (
-                paginatedSalaries.map((salary) => {
-                  // 🌟 Halkan ugu beddel String si ammaan ah oo uu shaqeeyo toLocaleDateString()
-                  const displayDate = salary.date 
-                    ? parseTransactionDate(salary.date).toLocaleDateString() 
-                    : "—";
-
-                  return (
-                    <tr key={salary.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                      <td className="p-3.5 whitespace-nowrap text-slate-500">
-                        <div className="flex items-center gap-1.5">
-                          <Calendar size={13} className="text-slate-400" />
-                          {displayDate}
+                paginatedSalaries.map((salary) => (
+                  <tr key={salary.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                    <td className="p-3.5 whitespace-nowrap text-slate-500">
+                      <div className="flex items-center gap-1.5">
+                        <Calendar size={13} className="text-slate-400" />
+                        {salary.date ? new Date(salary.date.seconds * 1000).toLocaleDateString() : "—"}
+                      </div>
+                    </td>
+                    <td className="p-3.5">
+                      <div className="flex items-center gap-1.5">
+                        <User size={13} className="text-[#1e3a8a]" />
+                        <div>
+                          <span className="font-bold text-slate-800 dark:text-slate-200">{salary.employeeName || "Unknown"}</span>
+                          {salary.employeeId && <div className="text-[10px] text-slate-400">ID: {salary.employeeId}</div>}
                         </div>
-                      </td>
-                      <td className="p-3.5">
-                        <div className="flex items-center gap-1.5">
-                          <User size={13} className="text-[#1e3a8a]" />
-                          <div>
-                            <span className="font-bold text-slate-800 dark:text-slate-200">{salary.employeeName || "Unknown"}</span>
-                            {salary.employeeId && <div className="text-[10px] text-slate-400">ID: {salary.employeeId}</div>}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="p-3.5 max-w-[200px] truncate text-slate-500" title={salary.description}>
-                        <div className="flex items-center gap-1.5">
-                          <FileText size={13} className="text-slate-300" />
-                          <span>{salary.description || `${salary.month || ''} Salary`}</span>
-                        </div>
-                      </td>
-                      <td className="p-3.5 whitespace-nowrap">
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border text-[10px] font-semibold text-slate-700 dark:text-slate-300">
-                          {salary.accountName || "Cash/Bank Account"}
-                        </span>
-                      </td>
-                      <td className="p-3.5 text-right font-bold text-emerald-600 whitespace-nowrap text-sm">
-                        ${Number(salary.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
-                      <td className="p-3.5 text-center">
-                        <div className="flex justify-center gap-1.5">
-                          <button onClick={() => handleEdit(salary)} className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-md transition-colors">
-                            <Edit2 size={14} />
-                          </button>
-                          <button onClick={() => confirmDelete(salary.id)} className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-md transition-colors">
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
+                      </div>
+                    </td>
+                    <td className="p-3.5 max-w-[200px] truncate text-slate-500" title={salary.description}>
+                      <div className="flex items-center gap-1.5">
+                        <FileText size={13} className="text-slate-300" />
+                        <span>{salary.description || `${salary.month || ''} Salary`}</span>
+                      </div>
+                    </td>
+                    <td className="p-3.5 whitespace-nowrap">
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border text-[10px] font-semibold text-slate-700 dark:text-slate-300">
+                        {salary.paidFromAccount || "Cash/Bank Account"}
+                      </span>
+                    </td>
+                    <td className="p-3.5 text-right font-bold text-emerald-600 whitespace-nowrap text-sm">
+                      ${Number(salary.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="p-3.5 text-center">
+                      <div className="flex justify-center gap-1.5">
+                        <button onClick={() => handleEdit(salary)} className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-md transition-colors">
+                          <Edit2 size={14} />
+                        </button>
+                        <button onClick={() => confirmDelete(salary.id)} className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-md transition-colors">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
@@ -229,7 +205,7 @@ export default function ListSalaryExpense() {
           <AlertDialogHeader>
             <AlertDialogTitle className="text-sm font-bold">Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription className="text-xs">
-              This action cannot be undone. This salary entry will be permanently removed from the ledger database.
+              This action will remove the record from payment_entries and revert accounting balances.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="text-xs">

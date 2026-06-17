@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Edit2, Trash2, Plus, Search, Calendar, Loader2, Wallet, ArrowUpRight } from "lucide-react";
+import { Edit2, Trash2, Plus, Search, Calendar, Loader2, ArrowUpRight } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -15,207 +15,157 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
-
 import { useGeneralExpense } from "@/hooks/useGeneralExpense";
 import GeneralExpenseForm from "./GeneralExpenseForm"; 
 
 export default function ListGeneralExpense() {
-  // SAX: Waxaan u beddelay 'transactions' -> 'paymentEntries' iyo magacyada funksiyada
-  const { paymentEntries = [], accounts = [], loading, addPaymentEntry, deletePaymentEntry } = useGeneralExpense();
+  const { paymentEntries = [], accounts = [], loading, addPaymentEntry, deletePaymentEntry, refresh } = useGeneralExpense();
   
   const [isOpen, setIsOpen] = useState(false);
   const [expenseToEdit, setExpenseToEdit] = useState(null);
   const [search, setSearch] = useState("");
-  
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [expenseToDelete, setExpenseToDelete] = useState(null);
-
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
   const parseTransactionDate = (dateField) => {
-    if (!dateField) return new Date(0);
+    if (!dateField) return new Date();
     if (typeof dateField.toDate === "function") return dateField.toDate();
     if (dateField.seconds) return new Date(dateField.seconds * 1000);
     return new Date(dateField);
-  };
-
-  const handleEdit = (expense) => {
-    setExpenseToEdit(expense);
-    setIsOpen(true);
-  };
-
-  const confirmDelete = (id) => {
-    setExpenseToDelete(id);
-    setIsAlertOpen(true);
   };
 
   const executeDelete = async () => {
     try {
       await deletePaymentEntry(expenseToDelete);
       toast.success("Transaction deleted successfully.");
+      refresh();
     } catch (error) {
-      toast.error("Failed to delete transaction sxb.");
+      toast.error("Failed to delete transaction.");
     } finally {
       setIsAlertOpen(false);
       setExpenseToDelete(null);
     }
   };
 
-  const handleCloseModal = () => {
-    setIsOpen(false);
-    setExpenseToEdit(null);
-  };
-
   const filteredExpenses = useMemo(() => {
     if (!paymentEntries || !Array.isArray(paymentEntries)) return [];
 
-    // Filter-ka saxda ah
-    const validExpenses = paymentEntries.filter((t) => t?.category?.toLowerCase() === "expense");
+    // DEBUG: Halkan ka arag Console-ka waxa ku jira xogtaada
+    // console.log("Dhammaan Payment Entries:", paymentEntries);
+
+    // Waxaan u oggolaanay inuu soo saaro haddii uu yahay 'expense' ama 'general_expense'
+    const validExpenses = paymentEntries.filter((t) => {
+      const category = (t.category || "").toLowerCase();
+      const type = (t.type || "").toLowerCase();
+      return category === "expense" || type === "expense" || category === "general_expense";
+    });
 
     const searchLower = search.trim().toLowerCase();
-    const searchedList = !searchLower
-      ? validExpenses
-      : validExpenses.filter((t) => {
-          return (
-            (t.description || "").toLowerCase().includes(searchLower) ||
-            (t.chargedToAccount || "").toLowerCase().includes(searchLower) ||
-            (t.paidFromAccount || "").toLowerCase().includes(searchLower) ||
-            (t.month || "").toLowerCase().includes(searchLower)
-          );
-        });
-
-    return searchedList.sort((a, b) => {
-      return parseTransactionDate(b.date) - parseTransactionDate(a.date);
-    });
+    
+    return validExpenses
+      .filter((t) => 
+        (t.description || "").toLowerCase().includes(searchLower) ||
+        (t.chargedToAccount || "").toLowerCase().includes(searchLower) ||
+        (t.paidFromAccount || "").toLowerCase().includes(searchLower)
+      )
+      .sort((a, b) => parseTransactionDate(b.date) - parseTransactionDate(a.date));
   }, [paymentEntries, search]);
 
   const totalPages = Math.max(Math.ceil(filteredExpenses.length / itemsPerPage), 1);
-  const paginatedExpenses = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredExpenses.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredExpenses, currentPage]);
+  const paginatedExpenses = filteredExpenses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+      <div className="flex flex-col items-center justify-center min-h-[400px]">
         <Loader2 className="h-8 w-8 animate-spin text-[#1e3a8a]" />
-        <p className="text-sm text-slate-500 animate-pulse">Loading general expenses...</p>
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6 bg-slate-50 dark:bg-slate-950 min-h-screen text-slate-900 dark:text-slate-100">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-xl border-l-8 border-l-[#1e3a8a] shadow-sm">
+    <div className="p-6 max-w-7xl mx-auto space-y-6 bg-slate-50 min-h-screen">
+      <div className="flex justify-between items-center bg-white p-6 rounded-xl border-l-8 border-l-[#1e3a8a] shadow-sm">
         <div>
-          <h1 className="text-2xl font-bold uppercase tracking-tight">General Expenses</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Track and Manage Operational & Office Payroll Expenses</p>
+          <h1 className="text-2xl font-bold uppercase">General Expenses</h1>
+          <p className="text-sm text-slate-500">Track and Manage Operational Expenses</p>
         </div>
-        <Button onClick={() => { setExpenseToEdit(null); setIsOpen(true); }} className="bg-[#1e3a8a] hover:bg-[#172554] text-white font-bold text-xs shadow-sm">
-          <Plus size={16} className="mr-2" /> Add New Expense
+        <Button onClick={() => { setExpenseToEdit(null); setIsOpen(true); }} className="bg-[#1e3a8a] text-white">
+          <Plus size={16} className="mr-2" /> Add Expense
         </Button>
       </div>
 
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-        <input
-          type="text"
-          placeholder="Search expenses, accounts or months..."
-          className="w-full pl-10 pr-4 py-2 border border-slate-200 dark:border-slate-800 rounded-lg focus:ring-1 focus:ring-blue-600 outline-none bg-white dark:bg-slate-900 text-xs text-slate-800 dark:text-slate-100"
-          value={search}
-          onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-        />
-      </div>
+      <input
+        type="text"
+        placeholder="Search description, accounts..."
+        className="w-full p-2 border rounded-lg text-xs"
+        value={search}
+        onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+      />
 
-      <Card className="border border-slate-200 dark:border-slate-800 shadow-sm rounded-xl overflow-hidden">
+      <Card>
         <CardContent className="p-0 overflow-x-auto">
           <table className="w-full text-xs text-left">
-            <thead className="bg-[#1e3a8a] text-white uppercase text-[11px] font-bold tracking-wider">
+            <thead className="bg-[#1e3a8a] text-white uppercase">
               <tr>
-                <th className="p-3.5">Expense Details</th>
-                <th className="p-3.5">Account Flow (DR/CR)</th>
-                <th className="p-3.5 text-center">Month</th>
-                <th className="p-3.5 text-right">Amount</th>
-                <th className="p-3.5 text-center">Actions</th>
+                <th className="p-3">Expense</th>
+                <th className="p-3">Account Flow</th>
+                <th className="p-3">Month</th>
+                <th className="p-3 text-right">Amount</th>
+                <th className="p-3 text-center">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
-              {paginatedExpenses.map((expense) => {
-                const displayDate = expense.date ? parseTransactionDate(expense.date).toLocaleDateString() : "—";
-                return (
-                  <tr key={expense.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                    <td className="p-3.5 max-w-[220px]">
-                      <div className="font-bold text-slate-800 dark:text-slate-200 truncate">{expense.description}</div>
-                      <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 flex items-center gap-1">
-                        <Calendar size={11} /> Date: {displayDate}
-                      </div>
+            <tbody className="divide-y">
+              {paginatedExpenses.length > 0 ? (
+                paginatedExpenses.map((exp) => (
+                  <tr key={exp.id} className="hover:bg-slate-50">
+                    <td className="p-3 font-bold">{exp.description}</td>
+                    <td className="p-3">
+                      <div className="text-amber-700">CR: {exp.paidFromAccount}</div>
+                      <div className="text-emerald-700">DR: {exp.chargedToAccount}</div>
                     </td>
-                    <td className="p-3.5 text-[11px] space-y-0.5">
-                      <div className="text-amber-600 dark:text-amber-500 font-semibold flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                        CR: {expense.paidFromAccount || "Bank Account"} (-${expense.amount})
-                      </div>
-                      <div className="text-emerald-600 dark:text-emerald-500 font-semibold flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                        DR: {expense.chargedToAccount || "Expense Account"} (+${expense.amount})
-                      </div>
-                    </td>
-                    <td className="p-3.5 text-center whitespace-nowrap">
-                      <Badge variant="outline" className="text-[10px] font-bold px-2 py-0.5 bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-400 dark:border-slate-800">
-                        {expense.month}
-                      </Badge>
-                    </td>
-                    <td className="p-3.5 text-right font-bold whitespace-nowrap">
-                      <div className="flex items-center justify-end text-red-500 dark:text-red-400 font-bold text-xs">
-                        <ArrowUpRight size={13} className="mr-0.5 opacity-80" /> 
-                        ${Number(expense.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </div>
-                    </td>
-                    <td className="p-3.5 text-center whitespace-nowrap">
-                      <div className="flex justify-center gap-1.5">
-                        <button onClick={() => handleEdit(expense)} className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-md transition-colors">
-                          <Edit2 size={14} />
-                        </button>
-                        <button onClick={() => confirmDelete(expense.id)} className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-md transition-colors">
-                          <Trash2 size={14} />
-                        </button>
+                    <td className="p-3"><Badge variant="secondary">{exp.month}</Badge></td>
+                    <td className="p-3 text-right font-bold text-red-600">${Number(exp.amount || 0).toLocaleString()}</td>
+                    <td className="p-3 text-center">
+                      <div className="flex justify-center gap-2">
+                        <button onClick={() => { setExpenseToEdit(exp); setIsOpen(true); }} className="text-blue-600"><Edit2 size={14} /></button>
+                        <button onClick={() => { setExpenseToDelete(exp.id); setIsOpen(false); setIsAlertOpen(true); }} className="text-red-500"><Trash2 size={14} /></button>
                       </div>
                     </td>
                   </tr>
-                );
-              })}
+                ))
+              ) : (
+                <tr><td colSpan="5" className="p-10 text-center text-slate-500">No expenses found.</td></tr>
+              )}
             </tbody>
           </table>
         </CardContent>
       </Card>
 
-      {/* Modal View */}
+      <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={executeDelete} className="bg-red-600">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {isOpen && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-xl max-w-md w-full shadow-lg border border-slate-200 dark:border-slate-800 overflow-hidden">
-            <div className="px-5 py-4 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                {expenseToEdit ? "Edit General Expense" : "Add New General Expense"}
-              </h3>
-            </div>
-            <div className="p-5">
-              <GeneralExpenseForm 
-                accounts={accounts} 
-                onExecute={addPaymentEntry} 
-                onSuccess={handleCloseModal}
-                expenseToEdit={expenseToEdit}
-                onClose={handleCloseModal}
-              />
-            </div>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-6 rounded-lg w-full max-w-md">
+            <GeneralExpenseForm 
+              accounts={accounts} 
+              onExecute={addPaymentEntry} 
+              onSuccess={() => { setIsOpen(false); refresh(); }}
+              expenseToEdit={expenseToEdit}
+              onClose={() => setIsOpen(false)}
+            />
           </div>
         </div>
       )}

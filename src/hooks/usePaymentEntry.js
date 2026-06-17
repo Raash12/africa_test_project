@@ -1,7 +1,10 @@
 // hooks/usePaymentEntry.js
 import { useState, useEffect, useCallback } from "react";
-// Waxaan beddelnay magaca function-ka halkan
-import { getAllPaymentEntries } from "@/services/payment/paymentEntryService";
+import { 
+  getAllPaymentEntries, 
+  createPaymentEntry, 
+  deletePaymentEntry 
+} from "@/services/payment/paymentEntryService";
 
 export default function usePaymentEntry() {
   const [payments, setPayments] = useState([]);
@@ -12,7 +15,6 @@ export default function usePaymentEntry() {
     setLoading(true);
     setError(null);
     try {
-      // Halkan isticmaal magaca saxda ah
       const data = await getAllPaymentEntries();
       setPayments(data);
     } catch (err) {
@@ -22,6 +24,27 @@ export default function usePaymentEntry() {
     }
   }, []);
 
+  // 1. Add Payment Function
+  const addPayment = async (data, type) => {
+    try {
+      const newEntry = await createPaymentEntry(data, type);
+      await fetchPayments(); // Dib u cusbooneysii liiska
+      return newEntry;
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  // 2. Delete Payment Function
+  const removePayment = async (id, invoiceId = null) => {
+    try {
+      await deletePaymentEntry(id, invoiceId);
+      await fetchPayments(); // Dib u cusbooneysii liiska
+    } catch (err) {
+      throw err;
+    }
+  };
+
   useEffect(() => {
     fetchPayments();
   }, [fetchPayments]);
@@ -30,6 +53,8 @@ export default function usePaymentEntry() {
     payments,
     loading,
     error,
-    refreshPayments: fetchPayments
+    refreshPayments: fetchPayments,
+    addPayment,
+    removePayment
   };
 }
