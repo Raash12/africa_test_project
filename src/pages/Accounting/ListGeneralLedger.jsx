@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from "react";
-import { Search, FileSpreadsheet, Download, Loader2, Calendar } from "lucide-react";
+import { Search, FileSpreadsheet, Download, Loader2, Calendar, FileText, FileSpreadsheet as ExcelIcon } from "lucide-react";
 import useAccounts from "@/hooks/useAccounts";
 import usePaymentEntry from "@/hooks/usePaymentEntry"; 
-import useGrants from "@/hooks/useGrants"; 
+import useGrants from "@/hooks/useGrants";
+import { downloadPDF, downloadExcel } from "@/utils/exportUtils";
 
 const formatCurrency = (val) => 
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
@@ -22,6 +23,7 @@ export default function ListGeneralLedger() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [exporting, setExporting] = useState(false);
   const rowsPerPage = 10;
 
   const isLoading = loadingAccounts || loadingPayments || loadingGrants;
@@ -63,7 +65,7 @@ export default function ListGeneralLedger() {
   const processedData = useMemo(() => {
     let entries = [];
 
-    // A. SOO QAAD OPENING BALANCES
+    // A. Opening Balances
     Object.keys(accountMap).forEach(accId => {
       const target = accountMap[accId];
       if (target && target.openingBalance > 0) {
@@ -83,7 +85,7 @@ export default function ListGeneralLedger() {
       }
     });
 
-    // B. SOO QAAD PAYMENT ENTRIES
+    // B. Payment Entries
     payments.forEach(p => {
       const amt = Number(p.amount ?? p.amountPaid ?? p.mountPaid ?? 0);
       if (amt <= 0) return; 
@@ -131,7 +133,7 @@ export default function ListGeneralLedger() {
       }
     });
 
-    // C. SOO QAAD GRANTS-KA
+    // C. Grants
     grants.forEach(g => {
       const amt = Number(g.amount || g.amountPaid || 0);
       if (amt <= 0) return;
@@ -155,13 +157,13 @@ export default function ListGeneralLedger() {
       }
     });
 
-    // 1. Kala saar chronological ahaan (Oldest to Newest) si balance-ka loo xisaabiyo
+    // Sort chronological (Oldest to Newest) for balance calculation
     entries.sort((a, b) => {
       if (a.rawDate.getTime() !== b.rawDate.getTime()) return a.rawDate - b.rawDate;
       return a.typeOrder - b.typeOrder;
     });
 
-    // 2. Xisaabi Running Balance-ka koonto kasta
+    // Calculate Running Balance
     const rollingBalances = {};
     entries.forEach(entry => {
       const accId = entry.accountId;
@@ -183,24 +185,14 @@ export default function ListGeneralLedger() {
       entry.rowRunningBalance = rollingBalances[accId];
     });
 
-    // 🚨 DEBUG: HALKAN WAXAAN KU DARAY CONSOLE.LOG QAAB TABLE AH SI AAD BALANCE-KA ULA SOCOTO
-    console.log("📊 --- CHRONOLOGICAL LEDGER SEQUENCE (OLD FIRST FOR BALANCE CALCULATION) ---");
-    console.table(entries.map(e => ({
-      Account: e.accountName,
-      Description: e.description,
-      Debit: e.debit,
-      Credit: e.credit,
-      "Calculated Balance": e.rowRunningBalance
-    })));
-
-    // Filter-ka Raadinta
+    // Filter by search
     let filtered = entries.filter(e => {
       return (e.description || "").toLowerCase().includes(search.toLowerCase()) || 
              (e.accountName || "").toLowerCase().includes(search.toLowerCase()) ||
              (e.counterparty || "").toLowerCase().includes(search.toLowerCase());
     });
 
-    // 3. Kii ugu dambeeyey ayaa hadda kor u kormeraya shaashadda (Newest to Oldest)
+    // Sort for display (Newest to Oldest)
     const finalSorted = filtered.sort((a, b) => {
       if (a.isOpening && !b.isOpening) return 1;
       if (!a.isOpening && b.isOpening) return -1;
@@ -210,25 +202,51 @@ export default function ListGeneralLedger() {
       return b.typeOrder - a.typeOrder;
     });
 
-    // 🚨 DEBUG: HALKAN WAXAAN KU DARAY CONSOLE.LOG LABAAD OO MUUJINAYA SIDA SHAASHADDA LOO SAARAYO
-    console.log("🖥️ --- VISUAL DISPLAY SEQUENCE (NEWEST FIRST FOR SCREEN DISPLAY) ---");
-    console.table(finalSorted.map(e => ({
-      Date: e.date,
-      Account: e.accountName,
-      Description: e.description,
-      "Running Balance": e.rowRunningBalance
-    })));
-
     return finalSorted;
 
   }, [accounts, payments, grants, accountMap, search]);
 
-  // PAGINATION LOGIC
+  // Pagination Logic
   const totalPages = Math.ceil(processedData.length / rowsPerPage) || 1;
   const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * rowsPerPage;
     return processedData.slice(start, start + rowsPerPage);
   }, [processedData, currentPage]);
+
+  // Export Functions
+  const handleExportPDF = async () => {
+    setExporting(true);
+    try {
+      const companyName = "AFRICAN IHSAN FOUNDATION"; // Change this to your company name
+      await downloadPDF(
+        processedData, 
+        "General_Ledger_Report", 
+        companyName
+      );
+    } catch (error) {
+      console.error("PDF Export Error:", error);
+      alert("Failed to export PDF. Please try again.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleExportExcel = async () => {
+    setExporting(true);
+    try {
+      const companyName = "AFRICAN IHSAN FOUNDATION"; // Change this to your company name
+      await downloadExcel(
+        processedData, 
+        "General_Ledger_Report", 
+        companyName
+      );
+    } catch (error) {
+      console.error("Excel Export Error:", error);
+      alert("Failed to export Excel. Please try again.");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -260,11 +278,40 @@ export default function ListGeneralLedger() {
             />
           </div>
           <div className="flex gap-2">
-            <button className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-all cursor-pointer">
-              <FileSpreadsheet size={14} /> Export CSV
+            {/* Excel Export Button */}
+            <button 
+              onClick={handleExportExcel}
+              disabled={exporting || processedData.length === 0}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                exporting || processedData.length === 0
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-emerald-600 text-white hover:bg-emerald-700'
+              }`}
+            >
+              {exporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ExcelIcon size={14} />
+              )}
+              Export Excel
             </button>
-            <button className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-all cursor-pointer">
-              <Download size={14} /> Download PDF
+            
+            {/* PDF Export Button */}
+            <button 
+              onClick={handleExportPDF}
+              disabled={exporting || processedData.length === 0}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                exporting || processedData.length === 0
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-slate-900 text-white hover:bg-slate-800'
+              }`}
+            >
+              {exporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileText size={14} />
+              )}
+              Export PDF
             </button>
           </div>
         </div>
@@ -326,12 +373,32 @@ export default function ListGeneralLedger() {
               Showing page <span className="font-bold text-slate-800">{currentPage}</span> of <span className="font-bold text-slate-800">{totalPages}</span>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="px-3 py-1.5 border rounded-lg text-slate-700 bg-white">Previous</button>
-              <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="px-3 py-1.5 border rounded-lg text-slate-700 bg-white">Next</button>
+              <button 
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
+                disabled={currentPage === 1} 
+                className="px-3 py-1.5 border rounded-lg text-slate-700 bg-white hover:bg-slate-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              <button 
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
+                disabled={currentPage === totalPages} 
+                className="px-3 py-1.5 border rounded-lg text-slate-700 bg-white hover:bg-slate-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
             </div>
           </div>
         )}
       </div>
+
+      {/* Export Status Message */}
+      {exporting && (
+        <div className="fixed bottom-4 right-4 bg-slate-900 text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-3 animate-in slide-in-from-bottom-2">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span className="text-sm font-medium">Exporting your report...</span>
+        </div>
+      )}
     </div>
   );
 }
