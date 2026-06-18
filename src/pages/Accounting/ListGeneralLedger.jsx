@@ -53,7 +53,7 @@ export default function ListGeneralLedger() {
         const oBalance = Number(curr.openingBalance ?? curr.balance ?? 0);
         acc[accId] = { 
           id: accId,
-          name: curr.accountName || "Unnamed Account", 
+          name: curr.accountName || curr.name || "Unnamed Account", 
           code: curr.accountCode || "",
           openingBalance: oBalance, 
           normalBalance: curr.normalBalance || "Debit",
@@ -91,7 +91,7 @@ export default function ListGeneralLedger() {
       }
     });
 
-    // B. Payment Entries (Bixinta Lacagta - Accounts Payable DR / Bank CR)
+    // B. Payment Entries
     payments.forEach((p, idx) => {
       const amt = Number(p.amount ?? p.amountPaid ?? p.mountPaid ?? 0);
       if (amt <= 0) return; 
@@ -123,8 +123,8 @@ export default function ListGeneralLedger() {
           credit: 0,
           accountId: targetDebAccId,
           accountName: targetDebName,
-          typeOrder: 2, // DR horta
-          transactionTypeOrder: 2 // Payment wuxuu yimaadaa Invoice ka dib
+          typeOrder: 2,
+          transactionTypeOrder: 2
         });
       }
 
@@ -141,42 +141,66 @@ export default function ListGeneralLedger() {
           credit: amt, 
           accountId: targetCredAccId,
           accountName: targetCredName,
-          typeOrder: 3, // CR dambeeya
+          typeOrder: 3,
           transactionTypeOrder: 2
         });
       }
     });
 
-    // C. Grants
+    // C. 🎁 GRANTS DOUBLE-ENTRY ENGINE (Waxaa halkan loogu daray Debit iyo Credit labadaba)
     grants.forEach((g, idx) => {
-      const amt = Number(g.amount || g.amountPaid || 0);
+      const amt = Number(g.amount || 0);
       if (amt <= 0) return;
 
-      const accId = g.receivingAccountId || g.accountId || g.bankAccountId;
-      const targetAccName = accountMap[accId]?.name || g.receivingAccount || "Bank Account";
       const insertionDate = g.createdAt || g.date; 
       const txId = g.id || `grant-${idx}-${getRawDate(insertionDate).getTime()}`;
+      const descStr = `Grant Revenue: ${g.grantName || 'Donor Funding'}`;
 
-      if (accId) {
+      const recAccId = g.receivingAccountId;
+      const revAccId = g.revenueAccountId;
+
+      // 1. DEBIT SIDE: Bank / Receiving Account (Asset kordhay)
+      if (recAccId) {
+        const recName = accountMap[recAccId]?.name || g.receivingAccount || "Receiving Account";
         entries.push({
-          id: txId,
+          id: `${txId}-grant-dr`,
           transactionId: txId,
-          date: formatFirestoreDate(g.date || g.createdAt),
-          rawDate: getRawDate(g.date || g.createdAt),
+          date: formatFirestoreDate(g.date || g.startDate || g.createdAt),
+          rawDate: getRawDate(g.date || g.startDate || g.createdAt),
           createdTimestamp: getRawDate(insertionDate), 
-          description: `🎁 Grant Revenue: ${g.grantName || g.description || 'Donor Funding'}`,
+          description: `DR | 🎁 ${descStr}`,
           counterparty: g.donorName || g.donor || "-",
           debit: amt, 
           credit: 0,
-          accountId: accId,
-          accountName: targetAccName,
+          accountId: recAccId,
+          accountName: recName, // Halkan wuxuu toos uga soo akhrisanayaa Map-ka
           typeOrder: 2,
+          transactionTypeOrder: 1
+        });
+      }
+
+      // 2. CREDIT SIDE: Revenue / Income Account (Revenue kordhay)
+      if (revAccId) {
+        const revName = accountMap[revAccId]?.name || g.revenueAccount || "Grant Revenue";
+        entries.push({
+          id: `${txId}-grant-cr`,
+          transactionId: txId,
+          date: formatFirestoreDate(g.date || g.startDate || g.createdAt),
+          rawDate: getRawDate(g.date || g.startDate || g.createdAt),
+          createdTimestamp: getRawDate(insertionDate), 
+          description: `CR | 🎁 ${descStr}`,
+          counterparty: g.donorName || g.donor || "-",
+          debit: 0, 
+          credit: amt, 
+          accountId: revAccId,
+          accountName: revName, // Halkan wuxuu toos uga soo akhrisanayaa Map-ka
+          typeOrder: 3,
           transactionTypeOrder: 1
         });
       }
     });
 
-    // D. PURCHASE INVOICES DOUBLE-ENTRY (Inventory DR / Accounts Payable CR)
+    // D. Purchase Invoices
     purchaseInvoices.forEach((inv, idx) => {
       const amt = Number(inv.totalAmount || 0);
       if (amt <= 0) return;
@@ -201,7 +225,7 @@ export default function ListGeneralLedger() {
           accountId: inv.inventoryAccountId,
           accountName: invAccName,
           typeOrder: 2,
-          transactionTypeOrder: 1 // Invoice mar walba waa koo koowaad
+          transactionTypeOrder: 1
         });
       }
 
@@ -225,14 +249,13 @@ export default function ListGeneralLedger() {
       }
     });
 
-    // STEP 1: Chronological sorting (Olest to Newest) based on database timestamp 
-    // Tani waxay hubinaysaa in xisaabtu u socoto qaab taariikheed sax ah oo running balance-ku saxmo
+    // STEP 1: Chronological sorting (Olest to Newest)
     entries.sort((a, b) => {
       if (a.createdTimestamp.getTime() !== b.createdTimestamp.getTime()) {
         return a.createdTimestamp - b.createdTimestamp; 
       }
       if (a.transactionTypeOrder !== b.transactionTypeOrder) {
-        return a.transactionTypeOrder - b.transactionTypeOrder; // Invoice horta (1), Payment ka dambayn (2)
+        return a.transactionTypeOrder - b.transactionTypeOrder;
       }
       if (a.transactionId !== b.transactionId) {
         return a.transactionId.localeCompare(b.transactionId);
@@ -269,20 +292,18 @@ export default function ListGeneralLedger() {
              (e.counterparty || "").toLowerCase().includes(search.toLowerCase());
     });
 
-    // STEP 2: 🌟 DISPLAY SORTING (Newest to Oldest)
-    // Halkan waxaan ku gaddoomiyey liiska si kii ugu dambeeyey uu kor ugu soo baxo, 
-    // laakiin iyadoo la ilaalinayo in double entry kasta uu isku xigo (Invoice hoos, Payment kor)
+    // STEP 2: DISPLAY SORTING (Newest to Oldest)
     const finalSorted = filtered.sort((a, b) => {
       if (b.createdTimestamp.getTime() !== a.createdTimestamp.getTime()) {
-        return b.createdTimestamp - a.createdTimestamp; // Kii dambeeyey baa kor imaya
+        return b.createdTimestamp - a.createdTimestamp; 
       }
       if (b.transactionTypeOrder !== a.transactionTypeOrder) {
-        return b.transactionTypeOrder - a.transactionTypeOrder; // Payment (2) baa kor imaya, Invoice (1) baa hoos maraya
+        return b.transactionTypeOrder - a.transactionTypeOrder;
       }
       if (a.transactionId !== b.transactionId) {
         return a.transactionId.localeCompare(b.transactionId);
       }
-      return a.typeOrder - b.typeOrder; // DR mar walba wuu ka sarreeyaa CR
+      return a.typeOrder - b.typeOrder;
     });
 
     return finalSorted;

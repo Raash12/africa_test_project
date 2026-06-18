@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Edit2, Trash2, Plus, Search, Calendar, Package } from "lucide-react";
+import { Edit2, Trash2, Plus, Search, Package } from "lucide-react";
 import { toast } from "sonner";
 import { db } from "@/lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
@@ -77,7 +77,7 @@ export default function ListGrant() {
 
   const handleEdit = (grant) => {
     setGrantToEdit(grant);
-    setIsOpen(true); // HAGAAGIN: Waxay ahaan jirtay IsOpen(true) oo xaraf weyn ah
+    setIsOpen(true);
   };
 
   const confirmDelete = (id) => {
@@ -174,12 +174,13 @@ export default function ListGrant() {
                 <th className="p-4">Grant / Project</th>
                 <th className="p-4">Donor</th>
                 <th className="p-4">Receiving Account</th>
+                <th className="p-4">Revenue Account</th>
                 <th className="p-4">Allocated Items</th>
                 <th className="p-4">Budget</th>
                 <th className="p-4">Timeline</th>
                 <th className="p-4 text-center">Actions</th>
               </tr>
-            </thead> {/* HAGAAGIN: Waxaa meeshaan ku jiray qoraal khaldan oo ahaa <Pegas> */}
+            </thead>
             <tbody className="divide-y">
               {paginatedGrants.map((grant) => (
                 <tr key={grant.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
@@ -190,15 +191,22 @@ export default function ListGrant() {
                   <td className="p-4">
                     <span className="font-semibold text-[#1e3a8a] bg-blue-50 px-2 py-1 rounded text-xs">{grant.donorName}</span>
                   </td>
-                  {/* ACCOUNT CELL */}
-                  <td className="p-4 text-xs text-slate-600 font-medium">
+                  
+                  {/* RECEIVING ACCOUNT CELL */}
+                  <td className="p-4 text-xs text-slate-600 dark:text-slate-300 font-medium">
                      {getAccountNameById(grant.receivingAccountId)}
                   </td>
+
+                  {/* REVENUE ACCOUNT CELL */}
+                  <td className="p-4 text-xs text-slate-600 dark:text-slate-300 font-medium">
+                     {getAccountNameById(grant.revenueAccountId)}
+                  </td>
+
                   <td className="p-4">
                     {grant.items && grant.items.length > 0 ? (
                       <div className="flex flex-col gap-1 max-w-[200px]">
                         {grant.items.map((item, idx) => (
-                          <div key={idx} className="flex items-center gap-1.5 text-xs bg-slate-100 px-2 py-0.5 rounded">
+                          <div key={idx} className="flex items-center gap-1.5 text-xs bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
                             <Package size={12} className="text-slate-400" />
                             <span className="truncate">{getItemNameById(item.itemId)}</span>
                             <span className="ml-auto font-bold text-blue-600">x{item.qty}</span>
@@ -214,8 +222,8 @@ export default function ListGrant() {
                   </td>
                   <td className="p-4 text-center">
                     <div className="flex justify-center gap-2">
-                      <button onClick={() => handleEdit(grant)} className="p-2 text-blue-600"><Edit2 size={16} /></button>
-                      <button onClick={() => confirmDelete(grant.id)} className="p-2 text-red-500"><Trash2 size={16} /></button>
+                      <button onClick={() => handleEdit(grant)} className="p-2 text-blue-600 hover:text-blue-800"><Edit2 size={16} /></button>
+                      <button onClick={() => confirmDelete(grant.id)} className="p-2 text-red-500 hover:text-red-700"><Trash2 size={16} /></button>
                     </div>
                   </td>
                 </tr>

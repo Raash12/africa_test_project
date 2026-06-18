@@ -15,7 +15,7 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select"; 
-import { UserCircle, Layers, DollarSign, Plus, Trash2, Box, BookOpen } from "lucide-react";
+import { Plus, Trash2, BookOpen, DollarSign } from "lucide-react";
 import { getAccounts as getChartOfAccounts } from "@/services/accounting/accountService";
 import { toast } from "sonner";
 
@@ -40,9 +40,12 @@ export default function CreateGrant({
     startDate: "",
     endDate: "",
     notes: "",
-    receivingAccountId: "", // WAA LA BEDDELAY
+    receivingAccountId: "", 
+    revenueAccountId: "", 
     items: [{ itemId: "", qty: "" }] 
   });
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Load Accounts
   useEffect(() => {
@@ -66,15 +69,15 @@ export default function CreateGrant({
     return { ...availItem, computedId: String(itemId) };
   });
 
-  // Sync form
+  // Sync form when editing or opening
   useEffect(() => {
     if (grantToEdit) {
       setForm({
         ...grantToEdit,
         donorId: grantToEdit.donorId ? String(grantToEdit.donorId) : "",
         programId: grantToEdit.programId ? String(grantToEdit.programId) : "",
-        // Halkan wuxuu nidaamku si otomaatig ah u aqrinayaa 'receivingAccountId'
         receivingAccountId: grantToEdit.receivingAccountId ? String(grantToEdit.receivingAccountId) : "",
+        revenueAccountId: grantToEdit.revenueAccountId ? String(grantToEdit.revenueAccountId) : "", 
         items: grantToEdit.items && grantToEdit.items.length > 0 
           ? grantToEdit.items.map(it => ({ itemId: String(it.itemId || it.id || ""), qty: String(it.qty || "") }))
           : [{ itemId: "", qty: "" }]
@@ -89,12 +92,12 @@ export default function CreateGrant({
         startDate: "",
         endDate: "",
         notes: "",
-        receivingAccountId: "", // WAA LA BEDDELAY
+        receivingAccountId: "", 
+        revenueAccountId: "", 
         items: [{ itemId: "", qty: "" }] 
       });
     }
   }, [grantToEdit, isOpen]);
-  const [isSubmitting, setIsSubmitting] = useState(false); // Add this hook
 
   const handleAddItem = () => setForm({ ...form, items: [...form.items, { itemId: "", qty: "" }] });
   const handleRemoveItem = (index) => setForm({ ...form, items: form.items.filter((_, i) => i !== index) });
@@ -104,32 +107,51 @@ export default function CreateGrant({
     setForm({ ...form, items: updatedItems });
   };
 
-  const handleSubmit = async (e) => {
-  e.preventDefault();
+  // 🌟 FILTERING FIXED: Waxaan ku kala saarnay lambarka akoonka (Account Code) si ay boqolkiiba boqol u kala baxaan
+  const assetAccounts = accounts.filter(acc => {
+    const code = String(acc.accountCode || "");
+    const type = String(acc.accountType || "").toLowerCase();
+    // Haddii uu koodku ka bilaamo 1 AMA nooca uu yahay assets
+    return code.startsWith("1") || type === "assets" || type === "asset";
+  });
   
-  if (isSubmitting) return; // Stop if already processing
+  const revenueAccounts = accounts.filter(acc => {
+    const code = String(acc.accountCode || "");
+    const type = String(acc.accountType || "").toLowerCase();
+    // Haddii uu koodku ka bilaamo 4 AMA nooca uu yahay revenue/income
+    return code.startsWith("4") || type === "revenue" || type === "income";
+  });
 
-  setIsSubmitting(true); // Lock the process
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (isSubmitting) return;
 
-  try {
-    const dataToSave = {
-      ...form,
-      amount: parseFloat(form.amount) || 0,
-      items: form.items.filter(i => i.itemId !== "").map(i => ({ itemId: i.itemId, qty: parseInt(i.qty, 10) || 0 }))
-    };
-    
-    await (grantToEdit?.id ? updateGrant(grantToEdit.id, dataToSave) : createGrant(dataToSave));
-    
-    toast.success("Grant saved successfully!");
-    onClose();
-    refreshGrants();
-  } catch (error) {
-    console.error("Error saving grant:", error);
-    toast.error("Failed to save grant.");
-  } finally {
-    setIsSubmitting(false); // Unlock the process
-  }
-};
+    if (!form.receivingAccountId || !form.revenueAccountId) {
+      toast.error("Fadlan dooro labada akoonba (Receiving iyo Revenue Account)");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const dataToSave = {
+        ...form,
+        amount: parseFloat(form.amount) || 0,
+        items: form.items.filter(i => i.itemId !== "").map(i => ({ itemId: i.itemId, qty: parseInt(i.qty, 10) || 0 }))
+      };
+      
+      await (grantToEdit?.id ? updateGrant(grantToEdit.id, dataToSave) : createGrant(dataToSave));
+      
+      toast.success("Grant saved successfully!");
+      onClose();
+      refreshGrants();
+    } catch (error) {
+      console.error("Error saving grant:", error);
+      toast.error("Failed to save grant.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={(val) => !val && onClose()}>
@@ -138,6 +160,9 @@ export default function CreateGrant({
           <DialogTitle className="text-[#1e3a8a] text-base font-bold uppercase tracking-wider">
             {grantToEdit ? "Edit Grant" : "Allocate New Grant"}
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Form for creating or editing grant details and account allocations.
+          </DialogDescription>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-x-4 gap-y-3 pt-4">
@@ -163,18 +188,44 @@ export default function CreateGrant({
             </Select>
           </div>
 
-          {/* Receiving Account (Laguu beddelay) */}
+          {/* Receiving Account (Assets Only - e.g., 1000, 1010) */}
           <div className="col-span-2 space-y-1">
-            <label className="text-xs font-semibold text-slate-500 uppercase">Receiving Account (Akoonka Lacagta lagu Shubayo)</label>
+            <label className="text-xs font-semibold text-slate-500 uppercase">Receiving Account (Wixii Asset Ah Bas)</label>
             <Select value={form.receivingAccountId} onValueChange={(v) => setForm({...form, receivingAccountId: v})}>
               <SelectTrigger className="h-10 text-sm">
                 <div className="flex items-center gap-2">
                   <BookOpen size={14} className="text-slate-400"/>
-                  <SelectValue placeholder="Select Account..." />
+                  <SelectValue placeholder="Select Bank/Asset Account..." />
                 </div>
               </SelectTrigger>
               <SelectContent>
-                {accounts.map(acc => <SelectItem key={acc.id} value={String(acc.id)}>[{acc.accountCode}] {acc.accountName}</SelectItem>)}
+                {assetAccounts.map(acc => (
+                  <SelectItem key={acc.id} value={String(acc.id)}>[{acc.accountCode}] {acc.accountName}</SelectItem>
+                ))}
+                {assetAccounts.length === 0 && (
+                  <div className="p-2 text-xs text-center text-slate-400">No Asset accounts found (Codes starting with 1)</div>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Revenue Account (Revenue Only - e.g., 4000) */}
+          <div className="col-span-2 space-y-1">
+            <label className="text-xs font-semibold text-slate-500 uppercase">Revenue Account (Wixii Revenue/Income Ah Bas)</label>
+            <Select value={form.revenueAccountId} onValueChange={(v) => setForm({...form, revenueAccountId: v})}>
+              <SelectTrigger className="h-10 text-sm">
+                <div className="flex items-center gap-2">
+                  <DollarSign size={14} className="text-slate-400"/>
+                  <SelectValue placeholder="Select Revenue Account..." />
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                {revenueAccounts.map(acc => (
+                  <SelectItem key={acc.id} value={String(acc.id)}>[{acc.accountCode}] {acc.accountName}</SelectItem>
+                ))}
+                {revenueAccounts.length === 0 && (
+                  <div className="p-2 text-xs text-center text-slate-400">No Revenue accounts found (Codes starting with 4)</div>
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -216,13 +267,9 @@ export default function CreateGrant({
           </div>
 
           <div className="col-span-2 pt-4 border-t flex justify-end gap-2">
-          <Button 
-  type="submit" 
-  className="bg-[#1e3a8a]" 
-  disabled={isSubmitting} // This prevents the double-click
->
-  {isSubmitting ? "Saving..." : "Save Grant"}
-</Button>
+            <Button type="submit" className="bg-[#1e3a8a]" disabled={isSubmitting}>
+              {isSubmitting ? "Saving..." : "Save Grant"}
+            </Button>
           </div>
         </form>
       </DialogContent>

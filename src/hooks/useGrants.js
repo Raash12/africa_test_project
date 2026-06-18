@@ -30,12 +30,14 @@ export default function useGrants() {
         const matchedDonor = donorsData.find(d => d.id === grant.donorId);
         const matchedProgram = programsData.find(p => p.id === grant.programId);
         const matchedAccount = accountsData.find(a => a.id === grant.receivingAccountId);
+        const matchedRevenueAccount = accountsData.find(a => a.id === grant.revenueAccountId); // 🌟 CUSUB
         
         return {
           ...grant,
           donorName: matchedDonor ? matchedDonor.donorName : "Unknown Donor",
           programName: matchedProgram ? matchedProgram.programName : "Unknown Program",
-          accountName: matchedAccount ? matchedAccount.accountName : "Cash/Bank Account" 
+          accountName: matchedAccount ? matchedAccount.accountName : "Cash/Bank Account",
+          revenueAccountName: matchedRevenueAccount ? matchedRevenueAccount.accountName : "Grant Income" // 🌟 CUSUB
         };
       });
 
