@@ -75,9 +75,10 @@ export default function ListGeneralLedger() {
       if (target && target.openingBalance > 0) {
         entries.push({
           id: `open-${accId}`, 
+          transactionId: `open-${accId}`,
           date: formatFirestoreDate(target.createdAt),
           rawDate: new Date(0), 
-          createdTimestamp: new Date(0), // Opening balance mar walba waa bilowga dunida
+          createdTimestamp: new Date(0), 
           description: `📥 Opening Balance: ${target.name}`, 
           counterparty: '-',
           debit: target.normalBalance === "Debit" ? target.openingBalance : 0, 
@@ -90,8 +91,8 @@ export default function ListGeneralLedger() {
       }
     });
 
-    // B. Payment Entries
-    payments.forEach(p => {
+    // B. Payment Entries (Bixinta Lacagta - Accounts Payable DR / Bank CR)
+    payments.forEach((p, idx) => {
       const amt = Number(p.amount ?? p.amountPaid ?? p.mountPaid ?? 0);
       if (amt <= 0) return; 
 
@@ -99,8 +100,9 @@ export default function ListGeneralLedger() {
       let invoiceLabel = p.invoiceNumber ? ` (${p.invoiceNumber})` : "";
       let descriptionStr = `${typeLabel} ${p.description || "Payment Entry"}${invoiceLabel}`;
       
-      const txDate = p.date || p.paymentDate || p.createdAt;
-      const insertionDate = p.createdAt || p.date; // 🌟 Firestore Entry Timestamp
+      const txDate = p.paymentDate || p.date || p.createdAt;
+      const insertionDate = p.createdAt || p.date; 
+      const txId = p.id || `pmt-${idx}-${getRawDate(insertionDate).getTime()}`;
 
       const targetDebAccId = p.chargedToAccountId || p.expenseAccountId;
       const targetDebName = p.chargedToAccount || accountMap[targetDebAccId]?.name || "Expense Account";
@@ -110,110 +112,131 @@ export default function ListGeneralLedger() {
 
       if (targetDebAccId) {
         entries.push({
-          id: `${p.id || Math.random()}-dr`, 
+          id: `${txId}-dr`, 
+          transactionId: txId,
           date: formatFirestoreDate(txDate),
           rawDate: getRawDate(txDate),
-          createdTimestamp: getRawDate(insertionDate), // 🌟 Save entry time
+          createdTimestamp: getRawDate(insertionDate), 
           description: `DR | ${descriptionStr}`,
           counterparty: p.supplierName || p.employeeName || "-",
           debit: amt, 
           credit: 0,
           accountId: targetDebAccId,
           accountName: targetDebName,
-          typeOrder: 2
+          typeOrder: 2, // DR horta
+          transactionTypeOrder: 2 // Payment wuxuu yimaadaa Invoice ka dib
         });
       }
 
       if (targetCredAccId) {
         entries.push({
-          id: `${p.id || Math.random()}-cr`, 
+          id: `${txId}-cr`, 
+          transactionId: txId,
           date: formatFirestoreDate(txDate),
           rawDate: getRawDate(txDate),
-          createdTimestamp: getRawDate(insertionDate), // 🌟 Save entry time
+          createdTimestamp: getRawDate(insertionDate), 
           description: `CR | ${descriptionStr}`,
           counterparty: p.supplierName || p.employeeName || "-",
           debit: 0,
           credit: amt, 
           accountId: targetCredAccId,
           accountName: targetCredName,
-          typeOrder: 3 
+          typeOrder: 3, // CR dambeeya
+          transactionTypeOrder: 2
         });
       }
     });
 
     // C. Grants
-    grants.forEach(g => {
+    grants.forEach((g, idx) => {
       const amt = Number(g.amount || g.amountPaid || 0);
       if (amt <= 0) return;
 
       const accId = g.receivingAccountId || g.accountId || g.bankAccountId;
       const targetAccName = accountMap[accId]?.name || g.receivingAccount || "Bank Account";
-      const insertionDate = g.createdAt || g.date; // 🌟 Firestore Entry Timestamp
+      const insertionDate = g.createdAt || g.date; 
+      const txId = g.id || `grant-${idx}-${getRawDate(insertionDate).getTime()}`;
 
       if (accId) {
         entries.push({
-          id: g.id || `grant-${Math.random()}`,
+          id: txId,
+          transactionId: txId,
           date: formatFirestoreDate(g.date || g.createdAt),
           rawDate: getRawDate(g.date || g.createdAt),
-          createdTimestamp: getRawDate(insertionDate), // 🌟 Save entry time
+          createdTimestamp: getRawDate(insertionDate), 
           description: `🎁 Grant Revenue: ${g.grantName || g.description || 'Donor Funding'}`,
           counterparty: g.donorName || g.donor || "-",
           debit: amt, 
           credit: 0,
           accountId: accId,
           accountName: targetAccName,
-          typeOrder: 2
+          typeOrder: 2,
+          transactionTypeOrder: 1
         });
       }
     });
 
-    // D. PURCHASE INVOICES DOUBLE-ENTRY
-    purchaseInvoices.forEach(inv => {
+    // D. PURCHASE INVOICES DOUBLE-ENTRY (Inventory DR / Accounts Payable CR)
+    purchaseInvoices.forEach((inv, idx) => {
       const amt = Number(inv.totalAmount || 0);
       if (amt <= 0) return;
 
-      const txDate = inv.dueDate || inv.createdAt;
-      const insertionDate = inv.createdAt || inv.dueDate; // 🌟 Firestore Entry Timestamp
+      const txDate = inv.createdAt || inv.dueDate; 
+      const insertionDate = inv.createdAt || inv.dueDate; 
+      const txId = inv.id || `inv-${idx}-${getRawDate(insertionDate).getTime()}`;
       const descStr = `🧾 Purchase Invoice: ${inv.invoiceNumber || "N/A"} (PO: ${inv.poNumber || "N/A"})`;
 
       if (inv.inventoryAccountId) {
         const invAccName = accountMap[inv.inventoryAccountId]?.name || inv.inventoryAccountName || "Inventory Account";
         entries.push({
-          id: `${inv.id || Math.random()}-pi-dr`,
+          id: `${txId}-pi-dr`,
+          transactionId: txId,
           date: formatFirestoreDate(txDate),
           rawDate: getRawDate(txDate),
-          createdTimestamp: getRawDate(insertionDate), // 🌟 Save entry time
+          createdTimestamp: getRawDate(insertionDate), 
           description: `DR | ${descStr}`,
           counterparty: inv.supplierName || "-",
           debit: amt,
           credit: 0,
           accountId: inv.inventoryAccountId,
           accountName: invAccName,
-          typeOrder: 2
+          typeOrder: 2,
+          transactionTypeOrder: 1 // Invoice mar walba waa koo koowaad
         });
       }
 
       if (inv.liabilityAccountId) {
         const liabAccName = accountMap[inv.liabilityAccountId]?.name || inv.liabilityAccountName || "Accounts Payable";
         entries.push({
-          id: `${inv.id || Math.random()}-pi-cr`,
+          id: `${txId}-pi-cr`,
+          transactionId: txId,
           date: formatFirestoreDate(txDate),
           rawDate: getRawDate(txDate),
-          createdTimestamp: getRawDate(insertionDate), // 🌟 Save entry time
+          createdTimestamp: getRawDate(insertionDate), 
           description: `CR | ${descStr}`,
           counterparty: inv.supplierName || "-",
           debit: 0,
           credit: amt,
           accountId: inv.liabilityAccountId,
           accountName: liabAccName,
-          typeOrder: 3
+          typeOrder: 3,
+          transactionTypeOrder: 1
         });
       }
     });
 
-    // STEP 1: Sort chronological (Oldest to Newest) based on rawDate for proper rolling balances
+    // STEP 1: Chronological sorting (Olest to Newest) based on database timestamp 
+    // Tani waxay hubinaysaa in xisaabtu u socoto qaab taariikheed sax ah oo running balance-ku saxmo
     entries.sort((a, b) => {
-      if (a.rawDate.getTime() !== b.rawDate.getTime()) return a.rawDate - b.rawDate;
+      if (a.createdTimestamp.getTime() !== b.createdTimestamp.getTime()) {
+        return a.createdTimestamp - b.createdTimestamp; 
+      }
+      if (a.transactionTypeOrder !== b.transactionTypeOrder) {
+        return a.transactionTypeOrder - b.transactionTypeOrder; // Invoice horta (1), Payment ka dambayn (2)
+      }
+      if (a.transactionId !== b.transactionId) {
+        return a.transactionId.localeCompare(b.transactionId);
+      }
       return a.typeOrder - b.typeOrder;
     });
 
@@ -246,13 +269,20 @@ export default function ListGeneralLedger() {
              (e.counterparty || "").toLowerCase().includes(search.toLowerCase());
     });
 
-    // STEP 2: 🌟 DISPLAY SORTING BY FIRESTORE ENTRY TIME (Newest to Oldest)
-    // Kii ugu dambeeyey ee database-ka gala (createdAt kii ugu dambeeyey) ayaa mar walba liiska ugu korreeya.
+    // STEP 2: 🌟 DISPLAY SORTING (Newest to Oldest)
+    // Halkan waxaan ku gaddoomiyey liiska si kii ugu dambeeyey uu kor ugu soo baxo, 
+    // laakiin iyadoo la ilaalinayo in double entry kasta uu isku xigo (Invoice hoos, Payment kor)
     const finalSorted = filtered.sort((a, b) => {
       if (b.createdTimestamp.getTime() !== a.createdTimestamp.getTime()) {
-        return b.createdTimestamp - a.createdTimestamp; 
+        return b.createdTimestamp - a.createdTimestamp; // Kii dambeeyey baa kor imaya
       }
-      return b.typeOrder - a.typeOrder;
+      if (b.transactionTypeOrder !== a.transactionTypeOrder) {
+        return b.transactionTypeOrder - a.transactionTypeOrder; // Payment (2) baa kor imaya, Invoice (1) baa hoos maraya
+      }
+      if (a.transactionId !== b.transactionId) {
+        return a.transactionId.localeCompare(b.transactionId);
+      }
+      return a.typeOrder - b.typeOrder; // DR mar walba wuu ka sarreeyaa CR
     });
 
     return finalSorted;

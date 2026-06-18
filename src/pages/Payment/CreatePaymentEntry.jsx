@@ -15,12 +15,12 @@ export default function CreatePaymentEntry({ isOpen, onClose, refreshPayments })
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [unpaidInvoices, setUnpaidInvoices] = useState([]);
   const [assetAccounts, setAssetAccounts] = useState([]); 
-  const [expenseAccounts, setExpenseAccounts] = useState([]); 
+  const [liabilityAccounts, setLiabilityAccounts] = useState([]); 
 
   // Form States
   const [selectedInvoiceId, setSelectedInvoiceId] = useState("");
   const [fromAccountId, setFromAccountId] = useState(""); 
-  const [expenseAccountId, setExpenseAccountId] = useState(""); 
+  const [liabilityAccountId, setLiabilityAccountId] = useState(""); 
   const [paymentDate, setPaymentDate] = useState("");
   const [amountPaid, setAmountPaid] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
@@ -50,12 +50,12 @@ export default function CreatePaymentEntry({ isOpen, onClose, refreshPayments })
         const assets = allAccounts.filter(acc => 
           acc.category?.toUpperCase() === "ASSETS" || acc.accountType?.toUpperCase() === "ASSETS"
         );
-        const expenses = allAccounts.filter(acc => 
-          acc.category?.toUpperCase() === "EXPENSES" || acc.accountType?.toUpperCase() === "EXPENSES"
+        const liabilities = allAccounts.filter(acc => 
+          acc.category?.toUpperCase() === "LIABILITIES" || acc.accountType?.toUpperCase() === "LIABILITIES" || acc.accountType?.toUpperCase() === "LIABILITY"
         );
 
         setAssetAccounts(assets);
-        setExpenseAccounts(expenses);
+        setLiabilityAccounts(liabilities);
       } catch (err) {
         console.error("Error fetching accounts:", err);
       }
@@ -73,20 +73,20 @@ export default function CreatePaymentEntry({ isOpen, onClose, refreshPayments })
       const matchedInvoice = unpaidInvoices.find(inv => inv.id === selectedInvoiceId);
       if (matchedInvoice) {
         setAmountPaid(matchedInvoice.totalAmount || "");
-        if (matchedInvoice.expenseAccountId) {
-          setExpenseAccountId(matchedInvoice.expenseAccountId);
+        if (matchedInvoice.liabilityAccountId) {
+          setLiabilityAccountId(matchedInvoice.liabilityAccountId);
         }
       }
     } else {
       setAmountPaid("");
-      setExpenseAccountId("");
+      setLiabilityAccountId("");
     }
   }, [selectedInvoiceId, unpaidInvoices]);
 
   // 3. TRANSACTION ENGINE
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedInvoiceId || !fromAccountId || !expenseAccountId || !paymentDate || !amountPaid || !paymentMethod) {
+    if (!selectedInvoiceId || !fromAccountId || !liabilityAccountId || !paymentDate || !amountPaid || !paymentMethod) {
       toast.error("Fadlan buuxi dhammaan meelaha muhiimka ah sxb.");
       return;
     }
@@ -100,26 +100,25 @@ export default function CreatePaymentEntry({ isOpen, onClose, refreshPayments })
     try {
       await runTransaction(db, async (transaction) => {
         const fromAccountRef = doc(db, "chart_of_accounts", fromAccountId);
-        const expenseAccountRef = doc(db, "chart_of_accounts", expenseAccountId);
+        const liabilityAccountRef = doc(db, "chart_of_accounts", liabilityAccountId);
 
         const fromAccSnap = await transaction.get(fromAccountRef);
-        const expenseAccSnap = await transaction.get(expenseAccountRef);
+        const liabilityAccSnap = await transaction.get(liabilityAccountRef);
 
         if (!fromAccSnap.exists()) throw new Error("Asset account-ka lama helin!");
-        if (!expenseAccSnap.exists()) throw new Error("Expense account-ka lama helin!");
+        if (!liabilityAccSnap.exists()) throw new Error("Liability account-ka lama helin!");
 
-        // Total Balance = Opening Balance + New Arrivals
         const currentFromBalance = parseFloat(fromAccSnap.data().balance || 0);
-        const currentExpenseBalance = parseFloat(expenseAccSnap.data().balance || 0);
+        const currentLiabilityBalance = parseFloat(liabilityAccSnap.data().balance || 0);
 
         // Validation Check
         if (currentFromBalance < parseAmount) {
           throw new Error(`INSUFFICIENT_FUNDS|Waan ka xumahay, lacagta koontada ${fromAccSnap.data().accountName} kuma filna bixintan. Waxaad haysataa wadarta: $${currentFromBalance.toLocaleString()}. Fadlan hubi opening balance-ka iyo dhaqdhaqaaqa kale.`);
         }
 
-        // Account Updates
+        // Account Updates 
         transaction.update(fromAccountRef, { balance: Number((currentFromBalance - parseAmount).toFixed(2)) });
-        transaction.update(expenseAccountRef, { balance: Number((currentExpenseBalance + parseAmount).toFixed(2)) });
+        transaction.update(liabilityAccountRef, { balance: Number((currentLiabilityBalance - parseAmount).toFixed(2)) });
 
         // Journal Entry
         const journalRef = doc(collection(db, "journal_entries"));
@@ -128,7 +127,7 @@ export default function CreatePaymentEntry({ isOpen, onClose, refreshPayments })
           fiscalYear: new Date(paymentDate).getFullYear().toString(),
           description: `Payment for Invoice: ${matchedInvoice.invoiceNumber} to ${matchedInvoice.supplierName}`,
           entries: [
-            { accountId: expenseAccountId, accountName: expenseAccSnap.data().accountName, debit: parseAmount, credit: 0 },
+            { accountId: liabilityAccountId, accountName: liabilityAccSnap.data().accountName, debit: parseAmount, credit: 0 },
             { accountId: fromAccountId, accountName: fromAccSnap.data().accountName, debit: 0, credit: parseAmount }
           ],
           createdAt: new Date().toISOString()
@@ -144,7 +143,7 @@ export default function CreatePaymentEntry({ isOpen, onClose, refreshPayments })
           invoiceNumber: matchedInvoice.invoiceNumber,
           supplierName: matchedInvoice.supplierName || "N/A",
           fromAccountId,
-          expenseAccountId, 
+          chargedToAccountId: liabilityAccountId, 
           paymentDate,
           amountPaid: parseAmount,
           paymentMethod,
@@ -159,7 +158,7 @@ export default function CreatePaymentEntry({ isOpen, onClose, refreshPayments })
       // Reset
       setSelectedInvoiceId("");
       setFromAccountId("");
-      setExpenseAccountId("");
+      setLiabilityAccountId("");
       setPaymentDate("");
       setAmountPaid("");
       setPaymentMethod("");
@@ -207,11 +206,11 @@ export default function CreatePaymentEntry({ isOpen, onClose, refreshPayments })
 
             <div className="flex flex-col gap-0.5">
               <Label className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1">
-                <Landmark size={10} /> Paid From (Total Balance: Available)
+                <Landmark size={10} /> Paid From (Asset Account / Bank)
               </Label>
               <Select modal={false} value={fromAccountId} onValueChange={setFromAccountId}>
                 <SelectTrigger className="w-full bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-xs h-8">
-                  <SelectValue placeholder="Select Account" />
+                  <SelectValue placeholder="Select Bank/Cash Account" />
                 </SelectTrigger>
                 <SelectContent>
                   {assetAccounts.map(acc => (
@@ -225,16 +224,17 @@ export default function CreatePaymentEntry({ isOpen, onClose, refreshPayments })
 
             <div className="flex flex-col gap-0.5">
               <Label className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1">
-                <FileText size={10} /> Expense Account (To Account)
+                <FileText size={10} /> Liability Account (Accounts Payable)
               </Label>
-              <Select modal={false} value={expenseAccountId} onValueChange={setExpenseAccountId}>
+              <Select modal={false} value={liabilityAccountId} onValueChange={setLiabilityAccountId}>
                 <SelectTrigger className="w-full bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-xs h-8">
-                  <SelectValue placeholder="Select Expense Account" />
+                  <SelectValue placeholder="Select Liability Account" />
                 </SelectTrigger>
                 <SelectContent>
-                  {expenseAccounts.map(acc => (
+                  {liabilityAccounts.map(acc => (
                     <SelectItem key={acc.id} value={acc.id}>
-                      {acc.accountName}
+                      {/* 🌟 Waxaa lagu daray balance-ka koontada Liability sxb */}
+                      {acc.accountName} (Total: ${acc.balance?.toLocaleString()})
                     </SelectItem>
                   ))}
                 </SelectContent>
