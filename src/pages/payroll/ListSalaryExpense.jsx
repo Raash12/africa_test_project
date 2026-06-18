@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Edit2, Trash2, Plus, Search, Calendar, User, FileText, Loader2 } from "lucide-react";
+import { Edit2, Trash2, Plus, Search, Calendar, User, FileText, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -23,12 +23,12 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 
-import usePaymentEntry from "@/hooks/usePaymentEntry"; // Waxaan u baddelnay usePaymentEntry
+import usePaymentEntry from "@/hooks/usePaymentEntry"; 
 import SalaryForm from "./SalaryForm"; 
 
 export default function ListSalaryExpense({ accounts = [] }) {
-  // Halkan waxaan uga soo baxsanay xogta guud ee usePaymentEntry
-  const { expenses: paymentEntries = [], loading, refreshPayments: refresh, removePayment: deletePaymentEntry } = usePaymentEntry();
+  // 🛠️ FIX: Waxaan halkaan si toos ah uga soo dhuuqnay 'salaries' maadaama hook-gu uu u diyaariyay mushaarka
+  const { salaries: paymentEntries = [], loading, refreshPayments: refresh, removePayment: deletePaymentEntry } = usePaymentEntry();
   
   const [isOpen, setIsOpen] = useState(false);
   const [salaryToEdit, setSalaryToEdit] = useState(null);
@@ -68,19 +68,17 @@ export default function ListSalaryExpense({ accounts = [] }) {
     setSalaryToEdit(null);
   };
 
-  const filteredSalaries = useMemo(() => {
-    if (!paymentEntries || !Array.isArray(paymentEntries)) return [];
+  const handleFormSuccess = () => {
+    refresh(); 
+    handleCloseModal();
+  };
 
-    // Waxaan miirnaa kaliya kuwa noocoodu yahay SALARY ama category-gu yahay Salary
-    const validSalaries = paymentEntries.filter((t) => {
-      if (!t) return false;
-      return (t.type === "SALARY" || (t.category && t.category.trim().toLowerCase() === "salary"));
-    });
-
+  // Search filter-ka kaliya ayaa halkan ku haray maadaama xogta hook-ga ka timaada ay validsan tahay
+  const searchedSalaries = useMemo(() => {
     const searchLower = search.trim().toLowerCase();
-    if (!searchLower) return validSalaries;
+    if (!searchLower) return paymentEntries;
 
-    return validSalaries.filter((t) => {
+    return paymentEntries.filter((t) => {
       const empName = (t.employeeName || "").toLowerCase();
       const empId = (t.employeeId || "").toLowerCase();
       const desc = (t.description || "").toLowerCase();
@@ -88,11 +86,11 @@ export default function ListSalaryExpense({ accounts = [] }) {
     });
   }, [paymentEntries, search]);
 
-  const totalPages = Math.max(Math.ceil(filteredSalaries.length / itemsPerPage), 1);
+  const totalPages = Math.max(Math.ceil(searchedSalaries.length / itemsPerPage), 1);
   const paginatedSalaries = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredSalaries.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredSalaries, currentPage]);
+    return searchedSalaries.slice(startIndex, startIndex + itemsPerPage);
+  }, [searchedSalaries, currentPage]);
 
   if (loading) {
     return (
@@ -106,6 +104,7 @@ export default function ListSalaryExpense({ accounts = [] }) {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6 bg-slate-50 dark:bg-slate-950 min-h-screen text-slate-900 dark:text-slate-100">
       
+      {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-xl border-l-8 border-l-[#1e3a8a] shadow-sm">
         <div>
           <h1 className="text-2xl font-bold uppercase tracking-tight">Salary Expenses</h1>
@@ -116,18 +115,20 @@ export default function ListSalaryExpense({ accounts = [] }) {
         </Button>
       </div>
 
+      {/* Search Input */}
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
         <input
           type="text"
           placeholder="Search employee name, ID or description..."
-          className="w-full pl-10 pr-4 py-2 border border-slate-200 dark:border-slate-800 rounded-lg focus:ring-1 focus:ring-blue-600 outline-none bg-white dark:bg-slate-900 text-xs"
+          className="w-full pl-10 pr-4 py-2 border border-slate-200 dark:border-slate-800 rounded-lg focus:ring-1 focus:ring-blue-600 outline-none bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100"
           value={search}
           onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
         />
       </div>
 
-      <Card className="border border-slate-200 dark:border-slate-800 shadow-sm rounded-xl overflow-hidden">
+      {/* Table Card */}
+      <Card className="border border-slate-200 dark:border-slate-800 shadow-sm rounded-xl overflow-hidden bg-white dark:bg-slate-900">
         <CardContent className="p-0 overflow-x-auto">
           <table className="w-full text-xs text-left">
             <thead className="bg-[#1e3a8a] text-white uppercase text-[11px] font-bold tracking-wider">
@@ -151,60 +152,66 @@ export default function ListSalaryExpense({ accounts = [] }) {
                   </td>
                 </tr>
               ) : (
-                paginatedSalaries.map((salary) => (
-                  <tr key={salary.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                    <td className="p-3.5 whitespace-nowrap text-slate-500">
-                      <div className="flex items-center gap-1.5">
-                        <Calendar size={13} className="text-slate-400" />
-                        {salary.date ? new Date(salary.date.seconds ? salary.date.seconds * 1000 : salary.date).toLocaleDateString() : "—"}
-                      </div>
-                    </td>
-                    <td className="p-3.5">
-                      <div className="flex items-center gap-1.5">
-                        <User size={13} className="text-[#1e3a8a]" />
-                        <div>
-                          <span className="font-bold text-slate-800 dark:text-slate-200">{salary.employeeName || "Unknown"}</span>
-                          {salary.employeeId && <div className="text-[10px] text-slate-400">ID: {salary.employeeId}</div>}
+                paginatedSalaries.map((salary) => {
+                  const matchingAccount = accounts.find(a => a.id === salary.paidFromAccountId);
+                  const accountLabel = salary.paidFromAccount || matchingAccount?.accountName || "Cash/Bank Account";
+
+                  return (
+                    <tr key={salary.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                      <td className="p-3.5 whitespace-nowrap text-slate-500">
+                        <div className="flex items-center gap-1.5">
+                          <Calendar size={13} className="text-slate-400" />
+                          {salary.date ? new Date(salary.date.seconds ? salary.date.seconds * 1000 : salary.date).toLocaleDateString() : "—"}
                         </div>
-                      </div>
-                    </td>
-                    <td className="p-3.5 max-w-[200px] truncate text-slate-500" title={salary.description}>
-                      <div className="flex items-center gap-1.5">
-                        <FileText size={13} className="text-slate-300" />
-                        <span>{salary.description || `${salary.month || ''} Salary`}</span>
-                      </div>
-                    </td>
-                    <td className="p-3.5 whitespace-nowrap">
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border text-[10px] font-semibold text-slate-700 dark:text-slate-300">
-                        {salary.paidFromAccount || "Cash/Bank Account"}
-                      </span>
-                    </td>
-                    <td className="p-3.5 text-right font-bold text-emerald-600 whitespace-nowrap text-sm">
-                      ${Number(salary.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </td>
-                    <td className="p-3.5 text-center">
-                      <div className="flex justify-center gap-1.5">
-                        <button onClick={() => handleEdit(salary)} className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-md transition-colors">
-                          <Edit2 size={14} />
-                        </button>
-                        <button onClick={() => confirmDelete(salary.id)} className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-md transition-colors">
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="p-3.5">
+                        <div className="flex items-center gap-1.5">
+                          <User size={13} className="text-[#1e3a8a]" />
+                          <div>
+                            <span className="font-bold text-slate-800 dark:text-slate-200">{salary.employeeName || "Unknown Staff"}</span>
+                            {salary.employeeId && <div className="text-[10px] text-slate-400">ID: {salary.employeeId}</div>}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-3.5 max-w-[200px] truncate text-slate-500" title={salary.description}>
+                        <div className="flex items-center gap-1.5">
+                          <FileText size={13} className="text-slate-300" />
+                          <span>{salary.description || `${salary.month || ''} Salary`}</span>
+                        </div>
+                      </td>
+                      <td className="p-3.5 whitespace-nowrap">
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border dark:border-slate-700 text-[10px] font-semibold text-slate-700 dark:text-slate-300">
+                          {accountLabel}
+                        </span>
+                      </td>
+                      <td className="p-3.5 text-right font-bold text-emerald-600 whitespace-nowrap text-sm">
+                        ${Number(salary.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="p-3.5 text-center">
+                        <div className="flex justify-center gap-1.5">
+                          <button onClick={() => handleEdit(salary)} className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-md transition-colors">
+                            <Edit2 size={14} />
+                          </button>
+                          <button onClick={() => confirmDelete(salary.id)} className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-md transition-colors">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </CardContent>
       </Card>
 
+      {/* Delete Alert Dialog */}
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
-        <AlertDialogContent className="max-w-sm rounded-xl">
+        <AlertDialogContent className="max-w-sm rounded-xl bg-white dark:bg-slate-900 border dark:border-slate-800">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-sm font-bold">Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription className="text-xs">
+            <AlertDialogTitle className="text-sm font-bold text-slate-900 dark:text-slate-100">Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-slate-500 dark:text-slate-400">
               This action will remove the record and revert accounting balances.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -217,7 +224,8 @@ export default function ListSalaryExpense({ accounts = [] }) {
         </AlertDialogContent>
       </AlertDialog>
 
-      {filteredSalaries.length > 0 && (
+      {/* Pagination Section */}
+      {searchedSalaries.length > 0 && (
         <Pagination>
           <PaginationContent>
             <PaginationItem>
@@ -235,12 +243,19 @@ export default function ListSalaryExpense({ accounts = [] }) {
         </Pagination>
       )}
 
+      {/* Modal Popup for Salary Form */}
       {isOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-lg w-full max-w-md">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 w-full max-w-md shadow-2xl relative">
+            <button 
+              onClick={handleCloseModal} 
+              className="absolute right-4 top-4 p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+            >
+              <X size={16} />
+            </button>
             <SalaryForm 
               accounts={accounts} 
-              onSuccess={handleCloseModal} 
+              onSuccess={handleFormSuccess} 
               salaryToEdit={salaryToEdit}
               onClose={handleCloseModal}
             />
