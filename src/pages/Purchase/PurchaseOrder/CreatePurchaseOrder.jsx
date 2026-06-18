@@ -25,13 +25,10 @@ export default function CreatePurchaseOrder({ isOpen, onClose, refreshPOs, poToE
   const [suppliers, setSuppliers] = useState([]);
   const [grants, setGrants] = useState([]);
   const [itemsMaster, setItemsMaster] = useState([]);
-  const [warehouses, setWarehouses] = useState([]);
   
   // Form Input States
   const [supplierId, setSupplierId] = useState("");
   const [grantId, setGrantId] = useState("");
-  const [accountCategory, setAccountCategory] = useState("");
-  const [warehouseId, setWarehouseId] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [totalAmount, setTotalAmount] = useState(0);
   const [poItems, setPoItems] = useState([]);
@@ -47,14 +44,12 @@ export default function CreatePurchaseOrder({ isOpen, onClose, refreshPOs, poToE
   useEffect(() => {
     const fetchDropdownData = async () => {
       try {
-        const [supSnap, grantSnap, itemsSnap, warehouseSnap] = await Promise.all([
+        const [supSnap, grantSnap, itemsSnap] = await Promise.all([
           getDocs(collection(db, "suppliers")),
           getDocs(collection(db, "grants")),
-          getDocs(collection(db, "items")),
-          getDocs(collection(db, "warehouses"))
+          getDocs(collection(db, "items"))
         ]);
         
-        setWarehouses(warehouseSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         setSuppliers(supSnap.docs.map(doc => ({ id: doc.id, name: doc.data().company || doc.data().supplierName || "N/A" })));
         setGrants(grantSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         setItemsMaster(itemsSnap.docs.map(doc => ({ id: doc.id, itemName: doc.data().itemName || "N/A" })));
@@ -76,16 +71,12 @@ export default function CreatePurchaseOrder({ isOpen, onClose, refreshPOs, poToE
     if (poToEdit) {
       setSupplierId(poToEdit.supplierId || "");
       setGrantId(poToEdit.grantId || "");
-      setAccountCategory(poToEdit.accountCategory || "");
-      setWarehouseId(poToEdit.warehouseId || "");
       setDueDate(poToEdit.dueDate ? poToEdit.dueDate.split("T")[0] : "");
       setTotalAmount(poToEdit.totalAmount || 0);
       setPoItems(poToEdit.items || []);
     } else {
       setSupplierId("");
       setGrantId("");
-      setAccountCategory("");
-      setWarehouseId("");
       setDueDate("");
       setTotalAmount(0);
       setPoItems([]);
@@ -152,7 +143,7 @@ export default function CreatePurchaseOrder({ isOpen, onClose, refreshPOs, poToE
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!supplierId || !grantId || !dueDate || !accountCategory || !warehouseId) {
+    if (!supplierId || !grantId || !dueDate) {
       toast.error("Please fill all required fields!");
       return;
     }
@@ -170,8 +161,6 @@ export default function CreatePurchaseOrder({ isOpen, onClose, refreshPOs, poToE
       supplierName: matchedSupplier ? matchedSupplier.name : "N/A",
       grantId,
       grantName: matchedGrant ? matchedGrant.grantName : "N/A",
-      accountCategory,
-      warehouseId,
       dueDate,
       totalAmount,
       status: poToEdit ? poToEdit.status : "PENDING",
@@ -213,7 +202,7 @@ export default function CreatePurchaseOrder({ isOpen, onClose, refreshPOs, poToE
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5 mt-4">
-          {/* Grant & Warehouse */}
+          {/* Grant & Vendor */}
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <Label className="text-[11px] font-bold uppercase text-slate-600">Funding Grant</Label>
@@ -225,33 +214,12 @@ export default function CreatePurchaseOrder({ isOpen, onClose, refreshPOs, poToE
               </Select>
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label className="text-[11px] font-bold uppercase text-slate-600">Warehouse</Label>
-              <Select value={warehouseId} onValueChange={setWarehouseId}>
-                <SelectTrigger className="h-10 border-slate-200"><SelectValue placeholder="Warehouse..." /></SelectTrigger>
-                <SelectContent className="bg-white">
-                  {warehouses.map(w => <SelectItem key={w.id} value={w.id}>{w.warehouseName}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Account & Vendor */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-[11px] font-bold uppercase text-slate-600">Account Category</Label>
-              <Select value={accountCategory} onValueChange={setAccountCategory}>
-                <SelectTrigger className="h-10 border-slate-200"><SelectValue placeholder="Account..." /></SelectTrigger>
-                <SelectContent className="bg-white">
-                  <SelectItem value="cash">Cash Account</SelectItem>
-                  <SelectItem value="bank">Bank Account</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-1.5">
               <Label className="text-[11px] font-bold uppercase text-slate-600">Vendor</Label>
               <Select value={supplierId} onValueChange={setSupplierId}>
                 <SelectTrigger className="h-10 border-slate-200"><SelectValue placeholder="Select Vendor" /></SelectTrigger>
-                <SelectContent>{suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                <SelectContent className="bg-white">
+                  {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                </SelectContent>
               </Select>
             </div>
           </div>
