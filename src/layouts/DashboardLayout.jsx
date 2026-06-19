@@ -65,7 +65,7 @@ export default function DashboardLayout() {
     { name: "Warehouse", path: "/warehouses", icon: Home },
     { name: "Stock In", path: "/stock-in", icon: ArrowUpRight },
     { name: "Stock Out", path: "/stock-out", icon: ArrowDownLeft },
-    { name: "Stock Adjustment", path: "/stock-adjustment", icon: SlidersHorizontal },
+    
   ];
 
   const programManagementItems = [
@@ -73,7 +73,7 @@ export default function DashboardLayout() {
     { name: "Donors", path: "/donors", icon: HandCoins },
     { name: "Grants", path: "/grants", icon: Handshake },
     { name: "Projects", path: "/projects", icon: FolderKanban },
-    { name: "Beneficiaries", path: "/beneficiaries", icon: HeartHandshake },
+    
   ];
 
   const accountItems = [

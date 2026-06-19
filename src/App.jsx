@@ -24,7 +24,6 @@ import ListPaymentEntry from "./pages/Payment/ListPaymentEntry";
 import ListWarehouse from "./pages/Inventory/ListWarehouse";
 import ListStockIn from "./pages/Inventory/ListStockIn";
 import ListStockOut from "./pages/Inventory/ListStockOut"; // 🌟 Stock Out Module path-kiisa
-import ListAdjustment from "./pages/Inventory/listAdjustment";
 import ListFiscalYear from "./pages/Accounting/ListFiscalYear";
 import ListAccounts from "./pages/Accounting/ListAccounts";
 import ListFinanceBook from "./pages/Accounting/ListFinanceBook";
@@ -128,8 +127,6 @@ export default function App() {
         <Route path="stock-in" element={<ListStockIn />} />
         {/* 🌟 STOCK OUT ROUTE */ }
         <Route path="stock-out" element={<ListStockOut />} />
-        {/* ADJUSTMENT ROUTE */}
-        <Route path="stock-adjustment" element={<ListAdjustment />} />
         {/* ACCOUNTING - FISCAL YEAR ROUTE */}
         <Route path="fiscal-years" element={<ListFiscalYear />} />
         {/* ACCOUNTING - CHART OF ACCOUNTS ROUTE */}
