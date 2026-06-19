@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { getProjects } from "@/services/projects/projectService";
+// 🛠️ FIX: Hubi in uu ku dhex jiro curly braces { getProjects }
+import { getProjects } from "@/services/projects/projectService"; 
 import { getGrants } from "@/services/grants/grantService";
 
 export default function useProjects() {
@@ -16,7 +17,6 @@ export default function useProjects() {
     try {
       const [projectsData, grantsData] = await Promise.all([getProjects(), getGrants()]);
       
-      // Khariidad ku samee projects si loo helo magaca rasmiga ah ee Grant-iga
       const enrichedProjects = projectsData.map(project => {
         const matchedGrant = grantsData.find(g => g.id === project.grantId);
         return {

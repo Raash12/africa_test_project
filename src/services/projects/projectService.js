@@ -1,102 +1,136 @@
 import { db } from "@/lib/firebase";
 import { 
   collection, 
-  addDoc, 
   getDocs, 
   updateDoc, 
   deleteDoc, 
   doc, 
-  runTransaction 
+  runTransaction,
+  serverTimestamp 
 } from "firebase/firestore";
 
 const projectCollection = collection(db, "projects");
 
 // =================================================================
-// 1. CREATE PROJECT & DEDUCT INVENTORY (TRANSACTION WITH ARRAY/DIRECT SUPPORT)
+// 1. READ PROJECTS (Kani ayaa maqnaa sxb oo error-ka bixinayay!)
 // =================================================================
-export const createProject = async (projectData) => {
-  // Haddii foomka aan laga dooran wax kayd ah (Stock Item) ama uu yahay "none"
-  if (!projectData.stockItemId || projectData.stockItemId === "none") {
-    const cleanedData = { ...projectData };
-    // Ka saar field-yada stock-ka haddii aan waxba la dooran
-    delete cleanedData.stockItemId;
-    delete cleanedData.stockItemName;
-    return await addDoc(projectCollection, cleanedData);
+export const getProjects = async () => {
+  try {
+    const snapshot = await getDocs(projectCollection);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  } catch (error) {
+    console.error("Error fetching projects:", error);
+    throw error;
   }
-
-  // Waxaan bilaabaynaa Transaction si labada dhinacba hal mar u wada fulaan
-  return await runTransaction(db, async (transaction) => {
-    // 1. Hel xogta rasmiga ah ee alaabta kaydka taal (Stock In)
-    const stockInDocRef = doc(db, "stock_in", projectData.stockItemId);
-    const stockInSnap = await transaction.get(stockInDocRef);
-
-    if (!stockInSnap.exists()) {
-      throw new Error("Alaabta aad dooratay kama jiro kaydka (Stock In) sxb!");
-    }
-
-    const stockInData = stockInSnap.data();
-    
-    // 🛠️ DIB U HAGAAJIN: Hubi haddii tiradu ay ku dhex jirto array (items) ama ay toos u taalo
-    let rawQty = 0;
-    let isNestedArray = false;
-
-    if (stockInData.items && Array.isArray(stockInData.items) && stockInData.items.length > 0) {
-      rawQty = stockInData.items[0].quantity ?? stockInData.items[0].qty ?? 0;
-      isNestedArray = true;
-    } else {
-      rawQty = stockInData.quantity ?? stockInData.qty ?? 0;
-    }
-
-    const currentStockQty = Number(rawQty);
-    const projectNeededQty = Number(projectData.quantity || 0);
-
-    // Badbaado: Hubi in kayd ku filan uu jiro
-    if (currentStockQty < projectNeededQty) {
-      throw new Error(`Kaydka ku haray waa kaliya (${currentStockQty}). Kuma filna mashruuca sxb!`);
-    }
-
-    // 2. Goami inta dhimanaysa
-    const newQuantity = currentStockQty - projectNeededQty;
-    
-    // Haddii ay eber noqoto, status-ka wuxuu isu beddelayaa "Stock Out"
-    const newStatus = newQuantity <= 0 ? "Stock Out" : "Stock In";
-
-    // 3. Cusbooneysii dukumeentiga Stock In-ka ah (Dhimis + Status beddel)
-    if (isNestedArray) {
-      // Haddii xogtu array ku dhex jirtay, koobi garee array-ga oo gudaha ka beddel tirada
-      const updatedItems = [...stockInData.items];
-      if (updatedItems[0].quantity !== undefined) updatedItems[0].quantity = newQuantity;
-      if (updatedItems[0].qty !== undefined) updatedItems[0].qty = newQuantity;
-      
-      transaction.update(stockInDocRef, {
-        items: updatedItems,
-        status: newStatus
-      });
-    } else {
-      // Haddii ay toos u taallay xogtu, si caadi ah u update garee
-      transaction.update(stockInDocRef, {
-        quantity: newQuantity,
-        status: newStatus
-      });
-    }
-
-    // 4. Kaydi Mashruuca cusub oo ay la socoto xogtii kaydka laga jaray
-    const newProjectRef = doc(collection(db, "projects"));
-    transaction.set(newProjectRef, {
-      ...projectData,
-      createdAt: new Date().toISOString()
-    });
-
-    return newProjectRef;
-  });
 };
 
 // =================================================================
-// 2. READ PROJECTS
+// 2. CREATE PROJECT & TRANSACTION (Koodkii cusbaa ee maaliyadda)
 // =================================================================
-export const getProjects = async () => {
-  const snapshot = await getDocs(projectCollection);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+export const createProject = async (projectData) => {
+  const numericAmount = parseFloat(projectData.totalValue || 0); 
+
+  return await runTransaction(db, async (transaction) => {
+    
+    // --- SECTION 1: READS FIRST ---
+    const assetAccRef = doc(db, "chart_of_accounts", projectData.assetAccountId);
+    const expenseAccRef = doc(db, "chart_of_accounts", projectData.expenseAccountId);
+    
+    const [assetSnap, expenseSnap] = await Promise.all([
+      transaction.get(assetAccRef),
+      transaction.get(expenseAccRef)
+    ]);
+
+    if (!assetSnap.exists() || !expenseSnap.exists()) {
+      throw new Error("Asset account ama Expense account aad dooratay midna lagama helin nidaamka!");
+    }
+
+    const readsMap = {};
+    for (const a of projectData.allocations) {
+      if (a.stockInDocId && !readsMap[a.stockInDocId]) {
+        const stockInRef = doc(db, "stock_in", a.stockInDocId);
+        const stockInDoc = await transaction.get(stockInRef);
+        if (stockInDoc.exists()) {
+          readsMap[a.stockInDocId] = {
+            ref: stockInRef,
+            data: stockInDoc.data()
+          };
+        }
+      }
+    }
+
+    // --- SECTION 2: WRITES LATER ---
+    transaction.update(assetAccRef, { 
+      balance: parseFloat(assetSnap.data().balance || 0) - numericAmount 
+    });
+    transaction.update(expenseAccRef, { 
+      balance: parseFloat(expenseSnap.data().balance || 0) + numericAmount 
+    });
+
+    const remainingDeductions = {};
+    projectData.allocations.forEach(a => {
+      remainingDeductions[a.itemId] = (remainingDeductions[a.itemId] || 0) + Number(a.qty);
+    });
+
+    for (const docId in readsMap) {
+      const cachedDoc = readsMap[docId];
+      let currentItems = cachedDoc.data.items || [];
+      
+      const updatedItems = currentItems.map(item => {
+        const neededDeduction = remainingDeductions[item.itemId] || 0;
+        if (neededDeduction > 0) {
+          const currentQty = Number(item.quantity || item.qty || 0);
+          const deduction = Math.min(currentQty, neededDeduction);
+          
+          remainingDeductions[item.itemId] -= deduction;
+          
+          return {
+            ...item,
+            quantity: currentQty - deduction
+          };
+        }
+        return item;
+      });
+
+      transaction.update(cachedDoc.ref, {
+        items: updatedItems,
+        lastUpdated: serverTimestamp()
+      });
+    }
+
+    const projectRef = doc(collection(db, "projects"));
+    const jeDocRef = doc(collection(db, "journal_entries"));
+
+    const journalEntryData = {
+      referenceId: projectRef.id,
+      description: `Distribution for Project: ${projectData.name}`,
+      month: projectData.month || "June 2026",
+      date: serverTimestamp(),
+      type: "PROJECT_DISTRIBUTION",
+      entries: [
+        { accountId: projectData.expenseAccountId, accountName: expenseSnap.data().accountName, debit: numericAmount, credit: 0 },
+        { accountId: projectData.assetAccountId, accountName: assetSnap.data().accountName, debit: 0, credit: numericAmount }
+      ]
+    };
+    transaction.set(jeDocRef, journalEntryData);
+
+    transaction.set(projectRef, {
+      name: projectData.name,
+      grantId: projectData.grantId,
+      grantName: projectData.grantName,
+      poId: projectData.poId,
+      assetAccountId: projectData.assetAccountId,
+      expenseAccountId: projectData.expenseAccountId,
+      assetAccountName: assetSnap.data().accountName,
+      expenseAccountName: expenseSnap.data().accountName,
+      journalEntryId: jeDocRef.id,
+      allocations: projectData.allocations,
+      totalValue: numericAmount,
+      createdAt: serverTimestamp()
+    });
+
+    return projectRef.id;
+  });
 };
 
 // =================================================================

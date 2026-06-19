@@ -4,6 +4,7 @@ import useAccounts from "@/hooks/useAccounts";
 import usePaymentEntry from "@/hooks/usePaymentEntry"; 
 import useGrants from "@/hooks/useGrants";
 import usePurchaseInvoices from "@/hooks/usePurchaseInvoices"; 
+import useProjects from "@/hooks/useProjects"; // 👈 Lagu daray: Hook-ga Projects
 import { downloadPDF, downloadExcel } from "@/utils/exportUtils";
 
 const formatCurrency = (val) => 
@@ -14,23 +15,26 @@ export default function ListGeneralLedger() {
   const hooksPayments = usePaymentEntry() || {};
   const hooksGrants = useGrants() || {};
   const hooksInvoices = usePurchaseInvoices() || {}; 
+  const hooksProjects = useProjects() || {}; // 👈 Lagu daray
 
   const accounts = hooksAccounts.accounts || hooksAccounts.data || [];
   const payments = hooksPayments.payments || hooksPayments.paymentEntries || hooksPayments.data || [];
   const grants = hooksGrants.grants || hooksGrants.data || [];
   const purchaseInvoices = hooksInvoices.purchaseInvoices || []; 
+  const projects = hooksProjects.projects || []; // 👈 Lagu daray
 
   const loadingAccounts = hooksAccounts.loading;
   const loadingPayments = hooksPayments.loading;
   const loadingGrants = hooksGrants.loading;
   const loadingInvoices = hooksInvoices.loading; 
+  const loadingProjects = hooksProjects.loading; // 👈 Lagu daray
 
   const [currentPage, setCurrentPage] = useState(1);
   const [search, setSearch] = useState("");
   const [exporting, setExporting] = useState(false);
   const rowsPerPage = 10;
 
-  const isLoading = loadingAccounts || loadingPayments || loadingGrants || loadingInvoices;
+  const isLoading = loadingAccounts || loadingPayments || loadingGrants || loadingInvoices || loadingProjects;
 
   const getRawDate = (dateField) => {
     if (!dateField) return new Date(0);
@@ -147,7 +151,7 @@ export default function ListGeneralLedger() {
       }
     });
 
-    // C. 🎁 GRANTS DOUBLE-ENTRY ENGINE (Waxaa halkan loogu daray Debit iyo Credit labadaba)
+    // C. 🎁 GRANTS DOUBLE-ENTRY ENGINE
     grants.forEach((g, idx) => {
       const amt = Number(g.amount || 0);
       if (amt <= 0) return;
@@ -159,7 +163,6 @@ export default function ListGeneralLedger() {
       const recAccId = g.receivingAccountId;
       const revAccId = g.revenueAccountId;
 
-      // 1. DEBIT SIDE: Bank / Receiving Account (Asset kordhay)
       if (recAccId) {
         const recName = accountMap[recAccId]?.name || g.receivingAccount || "Receiving Account";
         entries.push({
@@ -173,13 +176,12 @@ export default function ListGeneralLedger() {
           debit: amt, 
           credit: 0,
           accountId: recAccId,
-          accountName: recName, // Halkan wuxuu toos uga soo akhrisanayaa Map-ka
+          accountName: recName,
           typeOrder: 2,
           transactionTypeOrder: 1
         });
       }
 
-      // 2. CREDIT SIDE: Revenue / Income Account (Revenue kordhay)
       if (revAccId) {
         const revName = accountMap[revAccId]?.name || g.revenueAccount || "Grant Revenue";
         entries.push({
@@ -193,7 +195,7 @@ export default function ListGeneralLedger() {
           debit: 0, 
           credit: amt, 
           accountId: revAccId,
-          accountName: revName, // Halkan wuxuu toos uga soo akhrisanayaa Map-ka
+          accountName: revName,
           typeOrder: 3,
           transactionTypeOrder: 1
         });
@@ -249,7 +251,58 @@ export default function ListGeneralLedger() {
       }
     });
 
-    // STEP 1: Chronological sorting (Olest to Newest)
+    // E. 🚀 PROJECTS DISTRIBUTION DOUBLE-ENTRY ENGINE (Lagu daray logic-gii cusbaa sxb)
+    projects.forEach((proj, idx) => {
+      const amt = Number(proj.totalValue || 0);
+      if (amt <= 0) return;
+
+      const txDate = proj.createdAt || proj.date;
+      const insertionDate = proj.createdAt;
+      const txId = proj.id || `proj-${idx}-${getRawDate(insertionDate).getTime()}`;
+      const descStr = `Project Distribution: ${proj.name}`;
+
+      // 1. DEBIT SIDE: Expense Account (Kordhay)
+      if (proj.expenseAccountId) {
+        const expName = accountMap[proj.expenseAccountId]?.name || proj.expenseAccountName || "Expense Account";
+        entries.push({
+          id: `${txId}-proj-dr`,
+          transactionId: txId,
+          date: formatFirestoreDate(txDate),
+          rawDate: getRawDate(txDate),
+          createdTimestamp: getRawDate(insertionDate),
+          description: `DR | 🚀 ${descStr}`,
+          counterparty: proj.grantName || "Direct/No Grant Link",
+          debit: amt,
+          credit: 0,
+          accountId: proj.expenseAccountId,
+          accountName: expName,
+          typeOrder: 2,
+          transactionTypeOrder: 2
+        });
+      }
+
+      // 2. CREDIT SIDE: Asset Account (Dhimaday)
+      if (proj.assetAccountId) {
+        const assetName = accountMap[proj.assetAccountId]?.name || proj.assetAccountName || "Asset Account";
+        entries.push({
+          id: `${txId}-proj-cr`,
+          transactionId: txId,
+          date: formatFirestoreDate(txDate),
+          rawDate: getRawDate(txDate),
+          createdTimestamp: getRawDate(insertionDate),
+          description: `CR | 🚀 ${descStr}`,
+          counterparty: proj.grantName || "Direct/No Grant Link",
+          debit: 0,
+          credit: amt,
+          accountId: proj.assetAccountId,
+          accountName: assetName,
+          typeOrder: 3,
+          transactionTypeOrder: 2
+        });
+      }
+    });
+
+    // STEP 1: Chronological sorting (Oldest to Newest)
     entries.sort((a, b) => {
       if (a.createdTimestamp.getTime() !== b.createdTimestamp.getTime()) {
         return a.createdTimestamp - b.createdTimestamp; 
@@ -285,7 +338,7 @@ export default function ListGeneralLedger() {
       entry.rowRunningBalance = rollingBalances[accId];
     });
 
-    // Filter by search
+    // Filter by search (Mashaariicdana way ku dhex darsami doonaan baaritaanka)
     let filtered = entries.filter(e => {
       return (e.description || "").toLowerCase().includes(search.toLowerCase()) || 
              (e.accountName || "").toLowerCase().includes(search.toLowerCase()) ||
@@ -308,7 +361,7 @@ export default function ListGeneralLedger() {
 
     return finalSorted;
 
-  }, [accounts, payments, grants, purchaseInvoices, accountMap, search]);
+  }, [accounts, payments, grants, purchaseInvoices, projects, accountMap, search]);
 
   // Pagination Logic
   const totalPages = Math.ceil(processedData.length / rowsPerPage) || 1;
@@ -368,7 +421,7 @@ export default function ListGeneralLedger() {
             <Search className="absolute left-3.5 top-3 text-slate-400" size={16} />
             <input 
               className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none text-slate-800 placeholder-slate-400 focus:bg-white focus:border-slate-900 transition-all" 
-              placeholder="Search descriptions, grants, invoices or accounts..." 
+              placeholder="Search descriptions, grants, invoices, projects or accounts..." 
               value={search} 
               onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }} 
             />

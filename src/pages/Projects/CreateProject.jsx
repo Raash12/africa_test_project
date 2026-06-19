@@ -1,12 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query, where, doc, runTransaction, serverTimestamp } from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
+import { createProject } from "@/services/projects/projectService"; // Soo jiid adeegii aan kor ku samaynay
+import useAccounts from "@/hooks/useAccounts"; // Hook-gaaga Accounts-ka
 import { toast } from "sonner";
-import { Plus, Trash2, Package, Info, AlertCircle } from "lucide-react";
+import { Plus, Trash2, Package, Info, AlertCircle, Landmark, ArrowUpRight } from "lucide-react";
 
 const REGIONS_DATA = {
   "Banadir": ["Abdiaziz", "Bondhere", "Daynile", "Dharkenley", "Hamar-Jajab", "Hamar-Weyne", "Hodan", "Howl-Wadag", "Huriwaa", "Karaan", "Shangani", "Shibis", "Waberi", "Warta-Nabada", "Yaqshid", "Kaxda", "Garasbaley", "Kahda"],
@@ -21,14 +23,32 @@ const REGIONS_DATA = {
 };
 
 export default function CreateProject({ isOpen, onClose, grants = [], refreshProjects }) {
-  const [form, setForm] = useState({ name: "", grantId: "" });
+  const [form, setForm] = useState({ name: "", grantId: "", assetAccountId: "", expenseAccountId: "" });
   const [grantDetails, setGrantDetails] = useState(null);
   const [approvedPOs, setApprovedPOs] = useState([]);
   const [selectedPO, setSelectedPO] = useState(null);
   const [itemsMaster, setItemsMaster] = useState([]);
   const [stockInInventory, setStockInInventory] = useState({});
-  const [allocations, setAllocations] = useState([{ id: Date.now(), itemId: "", region: "", district: "", qty: "" }]);
+  const [allocations, setAllocations] = useState([{ id: Date.now(), itemId: "", region: "", district: "", qty: "", stockInDocId: "" }]);
   const [loading, setLoading] = useState(false);
+
+  const { accounts = [] } = useAccounts(); // Ka soo jiid dhamaan xisaabaadka COA
+
+  // Shaandhee Asset iyo Expense Accounts
+  const assetAccounts = useMemo(() => {
+    return accounts.filter(a => 
+      a?.accountType?.toLowerCase().includes("asset") || 
+      a?.accountType?.toLowerCase().includes("bank") || 
+      a?.category?.toLowerCase().includes("asset")
+    );
+  }, [accounts]);
+
+  const expenseAccounts = useMemo(() => {
+    return accounts.filter(a => 
+      a?.accountType?.toLowerCase().includes("expense") || 
+      a?.category?.toLowerCase().includes("expense")
+    );
+  }, [accounts]);
 
   // 1. Fetch Master Items List
   useEffect(() => {
@@ -99,7 +119,6 @@ export default function CreateProject({ isOpen, onClose, grants = [], refreshPro
         setStockInInventory(stockMap);
       } catch (err) {
         console.error("Error fetching stock_in data:", err);
-        toast.error("Waa la waayay xogta keydka Stock-In.");
       }
     };
 
@@ -108,121 +127,60 @@ export default function CreateProject({ isOpen, onClose, grants = [], refreshPro
 
   const totalAllocated = allocations.reduce((sum, a) => sum + (Number(a.qty) || 0), 0);
 
-  const checkStockLimits = () => {
-    const itemAllocatedTotals = {};
-    allocations.forEach(a => {
-      if (a.itemId) {
-        itemAllocatedTotals[a.itemId] = (itemAllocatedTotals[a.itemId] || 0) + Number(a.qty || 0);
-      }
-    });
+  // Xisaabi wadarta lacagta (Total Value) ee mashruucan ku baxaysa (Tirada * Price-ka Item-ka ku dhex jira PO)
+  const totalProjectValue = useMemo(() => {
+    if (!selectedPO) return 0;
+    return allocations.reduce((sum, alloc) => {
+      const poItem = selectedPO.items?.find(it => it.itemId === alloc.itemId);
+      const itemPrice = Number(poItem?.price || poItem?.unitPrice || 0);
+      return sum + (Number(alloc.qty || 0) * itemPrice);
+    }, 0);
+  }, [allocations, selectedPO]);
 
-    for (const itemId in itemAllocatedTotals) {
-      const availableStock = stockInInventory[itemId]?.quantity || 0;
-      if (itemAllocatedTotals[itemId] > availableStock) {
-        const itemName = itemsMaster.find(i => i.id === itemId)?.itemName || "Item";
-        return { valid: false, message: `Agabka ku jira Stock-In ee (${itemName}) waa ${availableStock}. Kama badnaan karo!` };
-      }
-    }
-    return { valid: true };
+  const handleItemChange = (lineId, itemId) => {
+    const stockInfo = stockInInventory[itemId];
+    const defaultDocId = stockInfo && stockInfo.docIds.length > 0 ? stockInfo.docIds[0].id : "";
+    
+    setAllocations(prev => prev.map(al => 
+      al.id === lineId ? { ...al, itemId: itemId, stockInDocId: defaultDocId } : al
+    ));
   };
 
-  // 4. Handle Form Submission (FIXED TRANSACTION: READS FIRST, WRITES LASTER)
   const handleSubmit = async () => {
-    if (!form.name || !selectedPO) return toast.error("Fadlan qor magaca mashruuca iyo PO-ga.");
-    if (allocations.some(a => !a.itemId || !a.qty || !a.region || !a.district)) return toast.error("Fadlan soo buuxi safafka qaybinta oo dhan.");
-    
-    const stockCheck = checkStockLimits();
-    if (!stockCheck.valid) return toast.error(stockCheck.message);
+    if (!form.name || !selectedPO || !form.assetAccountId || !form.expenseAccountId) {
+      return toast.error("Fadlan qor magaca mashruuca, PO-ga, iyo labada Account (Asset & Expense).");
+    }
+    if (allocations.some(a => !a.itemId || !a.qty || !a.region || !a.district)) {
+      return toast.error("Fadlan soo buuxi safafka qaybinta oo dhan.");
+    }
 
     setLoading(true);
     try {
-      await runTransaction(db, async (transaction) => {
-        
-        // --- SECTION 1: READS ONLY ---
-        const readsMap = {};
-        
-        for (const a of allocations) {
-          const stockInData = stockInInventory[a.itemId];
-          if (!stockInData || !stockInData.docIds) continue;
+      const payload = {
+        name: form.name,
+        grantId: form.grantId,
+        grantName: grantDetails?.grantName || "N/A",
+        poId: selectedPO.id,
+        assetAccountId: form.assetAccountId,
+        expenseAccountId: form.expenseAccountId,
+        totalValue: totalProjectValue,
+        month: "June 2026",
+        allocations: allocations.map(a => ({
+          itemId: a.itemId,
+          region: a.region,
+          district: a.district,
+          qty: Number(a.qty),
+          stockInDocId: a.stockInDocId
+        }))
+      };
 
-          for (const docInfo of stockInData.docIds) {
-            if (!readsMap[docInfo.id]) {
-              const stockInRef = doc(db, "stock_in", docInfo.id);
-              const stockInDoc = await transaction.get(stockInRef);
-              if (stockInDoc.exists()) {
-                readsMap[docInfo.id] = {
-                  ref: stockInRef,
-                  data: stockInDoc.data()
-                };
-              }
-            }
-          }
-        }
+      await createProject(payload);
 
-        // --- SECTION 2: WRITES ONLY ---
-        const remainingDeductions = {};
-        allocations.forEach(a => {
-          remainingDeductions[a.itemId] = (remainingDeductions[a.itemId] || 0) + Number(a.qty);
-        });
-
-        for (const docId in readsMap) {
-          const cachedDoc = readsMap[docId];
-          let currentItems = cachedDoc.data.items || [];
-          let hasChanged = false;
-
-          const updatedItems = currentItems.map(item => {
-            const neededDeduction = remainingDeductions[item.itemId] || 0;
-            if (neededDeduction > 0) {
-              const currentQty = Number(item.quantity || item.qty || 0);
-              const deduction = Math.min(currentQty, neededDeduction);
-              
-              remainingDeductions[item.itemId] -= deduction;
-              hasChanged = true;
-              
-              return {
-                ...item,
-                quantity: currentQty - deduction
-              };
-            }
-            return item;
-          });
-
-          if (hasChanged) {
-            transaction.update(cachedDoc.ref, {
-              items: updatedItems,
-              lastUpdated: serverTimestamp()
-            });
-          }
-        }
-
-        for (const itemId in remainingDeductions) {
-          if (remainingDeductions[itemId] > 0) {
-            throw new Error("Agabka ku jira Stock-In kuma filna qaybintan darteed.");
-          }
-        }
-
-        // Save Project Distribution Entry
-        const projectRef = doc(collection(db, "projects"));
-        transaction.set(projectRef, {
-          name: form.name,
-          grantId: form.grantId,
-          grantName: grantDetails?.grantName || "N/A",
-          poId: selectedPO.id,
-          allocations: allocations.map(a => ({ 
-            itemId: a.itemId, 
-            region: a.region, 
-            district: a.district, 
-            qty: Number(a.qty)
-          })),
-          createdAt: serverTimestamp()
-        });
-      });
-
-      toast.success("Mashruuca qaybinta gobollada si sax ah ayaa loo kaydiyey, stock-inkiina waa laga jaray!");
+      toast.success("Mashruuca wuu kaydsumay, xisaabtiina GL entry iyo balances waa la hagaajiyey!");
       if (refreshProjects) refreshProjects();
       onClose();
     } catch (e) {
-      console.error("Transaction failed: ", e);
+      console.error(e);
       toast.error(e.message || "Waa uu fashilmay kaydinta mashruuca.");
     } finally {
       setLoading(false);
@@ -237,11 +195,12 @@ export default function CreateProject({ isOpen, onClose, grants = [], refreshPro
             <Package size={20} /> Create New Distribution Project
           </DialogTitle>
           <DialogDescription className="text-xs">
-            U qaybi agabka bakhaarka soo galay (Stock In) gobollada iyo degmooyinka dalka.
+            U qaybi agabka bakhaarka soo galay gobollada dalka iyo accounts-ka maaliyadda.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          {/* Section-ka Koowaad: Magaca iyo Grant */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="text-xs font-bold text-slate-500 uppercase">Project Name</label>
@@ -259,35 +218,60 @@ export default function CreateProject({ isOpen, onClose, grants = [], refreshPro
                 </SelectContent>
               </Select>
             </div>
-
-            {grantDetails && (
-              <div className="col-span-2 flex items-center gap-2 p-2 bg-blue-50 text-blue-700 rounded text-xs font-medium">
-                <Info size={14} /> <span>Program: {grantDetails.programName || "General Fund"}</span>
-              </div>
-            )}
-
-            {form.grantId && (
-              <div className="col-span-2 space-y-1">
-                <label className="text-xs font-bold text-slate-500 uppercase">Approved Purchase Order</label>
-                <Select value={selectedPO?.id || ""} onValueChange={(v) => setSelectedPO(approvedPOs.find(p => p.id === v))}>
-                  <SelectTrigger><SelectValue placeholder="Select an approved PO" /></SelectTrigger>
-                  <SelectContent className="bg-white">
-                    {approvedPOs.map(po => (
-                      <SelectItem key={po.id} value={po.id}>{po.poNumber}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
           </div>
 
+          {/* 🛠️ CUSBOONEYSIIN: Labada Select Dropdown ee Xisaabaadka Financial-ka */}
+          <div className="grid grid-cols-2 gap-4 border-t pt-4 bg-slate-50 p-3 rounded-lg">
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
+                <Landmark size={14} className="text-amber-600" /> Paid From (Asset Account)
+              </label>
+              <Select value={form.assetAccountId} onValueChange={(v) => setForm({...form, assetAccountId: v})}>
+                <SelectTrigger><SelectValue placeholder="Select Asset/Bank Account" /></SelectTrigger>
+                <SelectContent className="bg-white">
+                  {assetAccounts.map(a => (
+                    <SelectItem key={a.id} value={a.id}>{a.accountName} (${a.balance || 0})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
+                <ArrowUpRight size={14} className="text-red-600" /> Charged To (Expense Account)
+              </label>
+              <Select value={form.expenseAccountId} onValueChange={(v) => setForm({...form, expenseAccountId: v})}>
+                <SelectTrigger><SelectValue placeholder="Select Expense Account" /></SelectTrigger>
+                <SelectContent className="bg-white">
+                  {expenseAccounts.map(a => (
+                    <SelectItem key={a.id} value={a.id}>{a.accountName}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* PO Choice */}
+          {form.grantId && (
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-500 uppercase">Approved Purchase Order</label>
+              <Select value={selectedPO?.id || ""} onValueChange={(v) => setSelectedPO(approvedPOs.find(p => p.id === v))}>
+                <SelectTrigger><SelectValue placeholder="Select an approved PO" /></SelectTrigger>
+                <SelectContent className="bg-white">
+                  {approvedPOs.map(po => (
+                    <SelectItem key={po.id} value={po.id}>{po.poNumber}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Lines-ka Qaybinta Gobolada */}
           {selectedPO && (
-            <div className="border rounded-lg p-4 bg-slate-50">
+            <div className="border rounded-lg p-4 bg-white shadow-sm">
               <div className="flex justify-between items-center mb-4">
-                <h4 className="text-sm font-bold uppercase text-slate-700 flex items-center gap-1">
-                  Distribution Lines 
-                </h4>
-                <Button variant="outline" size="sm" onClick={() => setAllocations([...allocations, { id: Date.now(), itemId: "", region: "", district: "", qty: "" }])}>
+                <h4 className="text-sm font-bold uppercase text-slate-700">Distribution Lines</h4>
+                <Button variant="outline" size="sm" onClick={() => setAllocations([...allocations, { id: Date.now(), itemId: "", region: "", district: "", qty: "", stockInDocId: "" }])}>
                   <Plus size={14} className="mr-1" /> Add Line
                 </Button>
               </div>
@@ -300,9 +284,9 @@ export default function CreateProject({ isOpen, onClose, grants = [], refreshPro
                   return (
                     <div key={a.id} className="grid grid-cols-5 gap-2 items-start border-b pb-2 sm:border-none sm:pb-0">
                       
-                      {/* Item Dropdown */}
-                      <div className="col-span-2 sm:col-span-1">
-                        <Select value={a.itemId} onValueChange={(v) => setAllocations(prev => prev.map(al => al.id === a.id ? {...al, itemId: v} : al))}>
+                      {/* Item dropdown */}
+                      <div>
+                        <Select value={a.itemId} onValueChange={(v) => handleItemChange(a.id, v)}>
                           <SelectTrigger><SelectValue placeholder="Item" /></SelectTrigger>
                           <SelectContent className="bg-white">
                             {selectedPO.items?.map(it => (
@@ -314,12 +298,12 @@ export default function CreateProject({ isOpen, onClose, grants = [], refreshPro
                         </Select>
                         {a.itemId && (
                           <span className="text-[10px] text-blue-600 block mt-0.5 px-1 font-semibold">
-                            Stock yaal: {availableQty}
+                            Stock: {availableQty}
                           </span>
                         )}
                       </div>
                       
-                      {/* Region Dropdown */}
+                      {/* Region */}
                       <Select value={a.region} onValueChange={(v) => setAllocations(prev => prev.map(al => al.id === a.id ? {...al, region: v, district: ""} : al))}>
                         <SelectTrigger><SelectValue placeholder="Region" /></SelectTrigger>
                         <SelectContent className="bg-white">
@@ -329,7 +313,7 @@ export default function CreateProject({ isOpen, onClose, grants = [], refreshPro
                         </SelectContent>
                       </Select>
 
-                      {/* District Dropdown */}
+                      {/* District */}
                       <Select value={a.district} disabled={!a.region} onValueChange={(v) => setAllocations(prev => prev.map(al => al.id === a.id ? {...al, district: v} : al))}>
                         <SelectTrigger><SelectValue placeholder="District" /></SelectTrigger>
                         <SelectContent className="bg-white">
@@ -339,7 +323,7 @@ export default function CreateProject({ isOpen, onClose, grants = [], refreshPro
                         </SelectContent>
                       </Select>
 
-                      {/* Quantity Input */}
+                      {/* Qty Input */}
                       <div className="flex flex-col">
                         <Input type="number" min="1" placeholder="Qty" value={a.qty} onChange={(e) => setAllocations(prev => prev.map(al => al.id === a.id ? {...al, qty: e.target.value} : al))} />
                         {Number(a.qty) > availableQty && (
@@ -349,7 +333,7 @@ export default function CreateProject({ isOpen, onClose, grants = [], refreshPro
                         )}
                       </div>
 
-                      {/* Delete Action Button */}
+                      {/* Delete */}
                       <div className="flex items-center justify-end">
                         <Button variant="ghost" size="sm" onClick={() => setAllocations(allocations.filter(x => x.id !== a.id))} disabled={allocations.length === 1}>
                           <Trash2 size={14} className="text-red-400" />
@@ -363,10 +347,11 @@ export default function CreateProject({ isOpen, onClose, grants = [], refreshPro
           )}
         </div>
 
-        {/* Footer */}
+        {/* Footer info & action buttons */}
         <div className="flex justify-between items-center border-t pt-4">
-          <div className="text-xs text-slate-500 font-medium">
-            Wadarta guud ee alaabta la kala qoondeeyey: <span className="font-bold text-slate-800">{totalAllocated}</span>
+          <div className="text-xs text-slate-500 font-medium flex flex-col">
+            <span>Items Allocated: <span className="font-bold text-slate-800">{totalAllocated}</span></span>
+            <span>Total Value: <span className="font-bold text-emerald-600">${totalProjectValue.toLocaleString()}</span></span>
           </div>
           <Button onClick={handleSubmit} disabled={loading || totalAllocated === 0} className="bg-[#1e3a8a] hover:bg-[#1e3a8a]/90 text-white">
             {loading ? "Processing..." : "Commit Distribution"}
