@@ -48,7 +48,8 @@ export default function DashboardLayout() {
   const [purchaseOpen, setPurchaseOpen] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [hrmOpen, setHrmOpen] = useState(false);
-  const [payrollOpen, setPayrollOpen] = useState(false); // State-ka cusub ee Payroll
+  const [payrollOpen, setPayrollOpen] = useState(false);
+  const [reportsOpen, setReportsOpen] = useState(false); // State for Reports
 
   const location = useLocation();
 
@@ -65,7 +66,6 @@ export default function DashboardLayout() {
     { name: "Warehouse", path: "/warehouses", icon: Home },
     { name: "Stock In", path: "/stock-in", icon: ArrowUpRight },
     { name: "Stock Out", path: "/stock-out", icon: ArrowDownLeft },
-    
   ];
 
   const programManagementItems = [
@@ -73,7 +73,6 @@ export default function DashboardLayout() {
     { name: "Donors", path: "/donors", icon: HandCoins },
     { name: "Grants", path: "/grants", icon: Handshake },
     { name: "Projects", path: "/projects", icon: FolderKanban },
-    
   ];
 
   const accountItems = [
@@ -94,10 +93,14 @@ export default function DashboardLayout() {
     { name: "Payment Entry", path: "/payment-entries", icon: CreditCard },
   ];
 
-  // Carruurta cusub ee Payroll (Labadii fayl ee aad kala jabisay)
   const payrollItems = [
     { name: "Salary Expenses", path: "/salary-expenses", icon: Briefcase },
     { name: "General Expenses", path: "/general-expenses", icon: Receipt },
+  ];
+
+  const reportsItems = [
+    { name: "Grant Report", path: "/reports/grants" },
+    { name: "Project Report", path: "/reports/projects" },
   ];
 
   // Hubinta in menu-ga hadda la joogo uu active yahay
@@ -107,7 +110,8 @@ export default function DashboardLayout() {
   const isPurchaseActive = purchaseItems.some((item) => location.pathname === item.path);
   const isPaymentActive = paymentItems.some((item) => location.pathname === item.path);
   const isHrmActive = location.pathname === "/employees" || location.pathname === "/users";
-  const isPayrollActive = payrollItems.some((item) => location.pathname === item.path); // Hubinta Payroll active
+  const isPayrollActive = payrollItems.some((item) => location.pathname === item.path);
+  const isReportsActive = reportsItems.some((item) => location.pathname === item.path);
 
   // In dropdown-ku si toos ah isu furo haddii link gudihiisa ah la joogo
   useEffect(() => {
@@ -117,8 +121,9 @@ export default function DashboardLayout() {
     if (isPurchaseActive) setPurchaseOpen(true);
     if (isPaymentActive) setPaymentOpen(true);
     if (isHrmActive) setHrmOpen(true);
-    if (isPayrollActive) setPayrollOpen(true); // Auto open Payroll
-  }, [location.pathname, isInventoryActive, isPmActive, isAccountActive, isPurchaseActive, isPaymentActive, isHrmActive, isPayrollActive]);
+    if (isPayrollActive) setPayrollOpen(true);
+    if (isReportsActive) setReportsOpen(true);
+  }, [location.pathname, isInventoryActive, isPmActive, isAccountActive, isPurchaseActive, isPaymentActive, isHrmActive, isPayrollActive, isReportsActive]);
 
   return (
     <div className={dark ? "dark" : ""}>
@@ -599,7 +604,7 @@ export default function DashboardLayout() {
               )}
             </div>
 
-            {/* PARENT CUSUB: PAYROLL (Xaqan ayaa lagu soo daray) */}
+            {/* PARENT: PAYROLL */}
             <div className="space-y-1">
               <button
                 onClick={() => {
@@ -661,6 +666,79 @@ export default function DashboardLayout() {
               )}
             </div>
 
+            {/* PARENT: REPORTS */}
+            <div className="space-y-1">
+              <button
+                onClick={() => {
+                  if (!open) setOpen(true);
+                  setReportsOpen(!reportsOpen);
+                }}
+                className={`
+                  w-full flex items-center justify-between
+                  px-4 py-3 rounded-xl
+                  transition-all duration-200
+                  text-sm font-medium
+                  ${
+                    isReportsActive
+                      ? "text-white bg-slate-800/50 font-semibold"
+                      : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                  }
+                  ${!open && "justify-center px-0"}
+                `}
+              >
+                <div className="flex items-center gap-3">
+                  <FileText size={20} className={isReportsActive ? "text-green-500" : ""} />
+                  {open && <span>Reports</span>}
+                </div>
+                {open && (
+                  <ChevronDown
+                    size={16}
+                    className={`transition-transform duration-200 ${reportsOpen ? "rotate-180" : ""}`}
+                  />
+                )}
+              </button>
+
+              {reportsOpen && open && (
+                <div className="pl-6 space-y-1 transition-all duration-200">
+                  {/* Grant Report */}
+                  <Link
+                    to="/reports/grants"
+                    className={`
+                      flex items-center gap-3
+                      px-4 py-2.5 rounded-xl
+                      text-xs font-medium transition-all duration-200
+                      ${
+                        location.pathname === "/reports/grants"
+                          ? "bg-green-600 text-white shadow-md shadow-green-900/10"
+                          : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                      }
+                    `}
+                  >
+                    <HandCoins size={16} />
+                    <span>Grant Report</span>
+                  </Link>
+
+                  {/* Project Report */}
+                  <Link
+                    to="/reports/projects"
+                    className={`
+                      flex items-center gap-3
+                      px-4 py-2.5 rounded-xl
+                      text-xs font-medium transition-all duration-200
+                      ${
+                        location.pathname === "/reports/projects"
+                          ? "bg-green-600 text-white shadow-md shadow-green-900/10"
+                          : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                      }
+                    `}
+                  >
+                    <FolderKanban size={16} />
+                    <span>Project Report</span>
+                  </Link>
+                </div>
+              )}
+            </div>
+
           </nav>
 
           {/* BOTTOM ACTIONS */}
@@ -693,7 +771,6 @@ export default function DashboardLayout() {
 
         {/* MAIN CONTENT AREA */}
         <main className="flex-1 flex flex-col h-full overflow-hidden">
-          {/* HEADER (Optional space or Top bar can go here) */}
           <div className="flex-1 overflow-y-auto p-4 bg-slate-50 dark:bg-slate-950">
             <Outlet />
           </div>
