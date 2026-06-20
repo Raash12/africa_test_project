@@ -32,6 +32,7 @@ import {
   FolderTree,
   ShoppingCart,
   BookOpen,
+  Scale, // Waxaan ku daray icon-kan oo ku habboon Trial Balance (Lucide-react)
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -98,9 +99,11 @@ export default function DashboardLayout() {
     { name: "General Expenses", path: "/general-expenses", icon: Receipt },
   ];
 
+  // Halkan waxaa lagu daray Trial Balance
   const reportsItems = [
     { name: "Grant Report", path: "/reports/grants" },
     { name: "Project Report", path: "/reports/projects" },
+    { name: "Trial Balance", path: "/trial-balance" },
   ];
 
   // Hubinta in menu-ga hadda la joogo uu active yahay
@@ -581,7 +584,7 @@ export default function DashboardLayout() {
                     `}
                   >
                     <Briefcase size={16} />
-                    <span>Employees</span>
+                    <span><span>Employees</span></span>
                   </Link>
 
                   <Link
@@ -734,6 +737,24 @@ export default function DashboardLayout() {
                   >
                     <FolderKanban size={16} />
                     <span>Project Report</span>
+                  </Link>
+
+                  {/* Trial Balance - Halkan ayaa lagu daray UI-ga */}
+                  <Link
+                    to="/reports/trial-balance"
+                    className={`
+                      flex items-center gap-3
+                      px-4 py-2.5 rounded-xl
+                      text-xs font-medium transition-all duration-200
+                      ${
+                        location.pathname === "/reports/trial-balance"
+                          ? "bg-green-600 text-white shadow-md shadow-green-900/10"
+                          : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                      }
+                    `}
+                  >
+                    <Scale size={16} />
+                    <span>Trial Balance</span>
                   </Link>
                 </div>
               )}

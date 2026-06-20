@@ -34,6 +34,9 @@ import SalaryForm from "./pages/payroll/SalaryForm";
 import ListGeneralExpense from "./pages/payroll/ListGeneralExpense";
 import GeneralExpenseForm from "./pages/payroll/GeneralExpenseForm";
 
+// TRIAL BALANCE IMPORT-KIISA SAXDA AH
+import TrialBalance from "@/pages/FinancialReport/TrialBalance";
+
 // REPORTS - Import both reports
 import GrantReport from "@/pages/reports/GrantReport";
 import ProjectReport from "@/pages/reports/ProjectReport";
@@ -118,6 +121,9 @@ export default function App() {
         <Route path="finance-books" element={<ListFinanceBook />} />
         <Route path="journal-entries" element={<ListJournalEntries />} />
         <Route path="general-ledger" element={<ListGeneralLedger />} />
+        
+        {/* TRIAL BALANCE ROUTE */}
+        <Route path="reports/trial-balance" element={<TrialBalance />} />
         
         {/* PAYROLL */}
         <Route path="salary-expenses" element={<ListSalaryExpense />} />

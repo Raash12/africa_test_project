@@ -5,7 +5,7 @@ import usePaymentEntry from "@/hooks/usePaymentEntry";
 import useGrants from "@/hooks/useGrants";
 import usePurchaseInvoices from "@/hooks/usePurchaseInvoices"; 
 import useProjects from "@/hooks/useProjects"; // 👈 Lagu daray: Hook-ga Projects
-import { downloadPDF, downloadExcel } from "@/utils/exportUtils";
+import { downloadPDF, downloadExcel } from "@/utils/ExportUtils";
 
 const formatCurrency = (val) => 
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
