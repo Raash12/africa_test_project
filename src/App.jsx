@@ -34,8 +34,9 @@ import SalaryForm from "./pages/payroll/SalaryForm";
 import ListGeneralExpense from "./pages/payroll/ListGeneralExpense";
 import GeneralExpenseForm from "./pages/payroll/GeneralExpenseForm";
 
-// TRIAL BALANCE IMPORT-KIISA SAXDA AH
+// TRIAL BALANCE & INCOME STATEMENT IMPORTS
 import TrialBalance from "@/pages/FinancialReport/TrialBalance";
+import IncomeStatement from "@/pages/FinancialReport/IncomeStatement"; // Kani waa kii lagu daray
 
 // REPORTS - Import both reports
 import GrantReport from "@/pages/reports/GrantReport";
@@ -122,8 +123,9 @@ export default function App() {
         <Route path="journal-entries" element={<ListJournalEntries />} />
         <Route path="general-ledger" element={<ListGeneralLedger />} />
         
-        {/* TRIAL BALANCE ROUTE */}
+        {/* FINANCIAL REPORTS */}
         <Route path="reports/trial-balance" element={<TrialBalance />} />
+        <Route path="reports/income-statement" element={<IncomeStatement />} /> {/* Jidka cusub ee Income Statement */}
         
         {/* PAYROLL */}
         <Route path="salary-expenses" element={<ListSalaryExpense />} />
