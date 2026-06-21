@@ -16,7 +16,6 @@ import {
   Package,
   Users,
   Handshake,
-  HeartHandshake,
   Layers,
   ChevronDown,
   UserCheck,
@@ -27,13 +26,14 @@ import {
   Home,
   ArrowUpRight,
   ArrowDownLeft,
-  SlidersHorizontal,
   CalendarDays,
   FolderTree,
   ShoppingCart,
   BookOpen,
   Scale,
-  TrendingUp, // Waxaan ku daray icon-kan oo ku habboon Income Statement
+  TrendingUp,
+  BarChart3, // Waxaan u soo qaatay Balance Sheet
+  DollarSign, // Waxaan u soo qaatay Cash Flow
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -51,7 +51,7 @@ export default function DashboardLayout() {
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [hrmOpen, setHrmOpen] = useState(false);
   const [payrollOpen, setPayrollOpen] = useState(false);
-  const [reportsOpen, setReportsOpen] = useState(false); // State for Reports
+  const [reportsOpen, setReportsOpen] = useState(false); 
 
   const location = useLocation();
 
@@ -100,12 +100,14 @@ export default function DashboardLayout() {
     { name: "General Expenses", path: "/general-expenses", icon: Receipt },
   ];
 
-  // Halkan waxaa lagu daray Trial Balance iyo Income Statement
+  // Balance Sheet iyo Cash Flow halkan ayaa lagu daray array-ga
   const reportsItems = [
-    { name: "Grant Report", path: "/reports/grants" },
-    { name: "Project Report", path: "/reports/projects" },
-    { name: "Trial Balance", path: "/reports/trial-balance" },
-    { name: "Income Statement", path: "/reports/income-statement" },
+    { name: "Grant Report", path: "/reports/grants", icon: HandCoins },
+    { name: "Project Report", path: "/reports/projects", icon: FolderKanban },
+    { name: "Trial Balance", path: "/reports/trial-balance", icon: Scale },
+    { name: "Income Statement", path: "/reports/income-statement", icon: TrendingUp },
+    { name: "Balance Sheet", path: "/reports/balance-sheet", icon: BarChart3 },
+    { name: "Cash Flow", path: "/reports/cash-flow", icon: DollarSign },
   ];
 
   // Hubinta in menu-ga hadda la joogo uu active yahay
@@ -671,7 +673,7 @@ export default function DashboardLayout() {
               )}
             </div>
 
-            {/* PARENT: REPORTS */}
+            {/* PARENT: REPORTS (Halkan waxaa si dynamic ah loogu soo bandhigay dhamaan reportyada) */}
             <div className="space-y-1">
               <button
                 onClick={() => {
@@ -705,77 +707,30 @@ export default function DashboardLayout() {
 
               {reportsOpen && open && (
                 <div className="pl-6 space-y-1 transition-all duration-200">
-                  {/* Grant Report */}
-                  <Link
-                    to="/reports/grants"
-                    className={`
-                      flex items-center gap-3
-                      px-4 py-2.5 rounded-xl
-                      text-xs font-medium transition-all duration-200
-                      ${
-                        location.pathname === "/reports/grants"
-                          ? "bg-green-600 text-white shadow-md shadow-green-900/10"
-                          : "text-slate-400 hover:bg-slate-800 hover:text-white"
-                      }
-                    `}
-                  >
-                    <HandCoins size={16} />
-                    <span>Grant Report</span>
-                  </Link>
+                  {reportsItems.map((child) => {
+                    const ChildIcon = child.icon;
+                    const isChildActive = location.pathname === child.path;
 
-                  {/* Project Report */}
-                  <Link
-                    to="/reports/projects"
-                    className={`
-                      flex items-center gap-3
-                      px-4 py-2.5 rounded-xl
-                      text-xs font-medium transition-all duration-200
-                      ${
-                        location.pathname === "/reports/projects"
-                          ? "bg-green-600 text-white shadow-md shadow-green-900/10"
-                          : "text-slate-400 hover:bg-slate-800 hover:text-white"
-                      }
-                    `}
-                  >
-                    <FolderKanban size={16} />
-                    <span>Project Report</span>
-                  </Link>
-
-                  {/* Trial Balance */}
-                  <Link
-                    to="/reports/trial-balance"
-                    className={`
-                      flex items-center gap-3
-                      px-4 py-2.5 rounded-xl
-                      text-xs font-medium transition-all duration-200
-                      ${
-                        location.pathname === "/reports/trial-balance"
-                          ? "bg-green-600 text-white shadow-md shadow-green-900/10"
-                          : "text-slate-400 hover:bg-slate-800 hover:text-white"
-                      }
-                    `}
-                  >
-                    <Scale size={16} />
-                    <span>Trial Balance</span>
-                  </Link>
-
-                  {/* Income Statement - Halkan ayaa lagu daray UI-ga */}
-                  <Link
-                    to="/reports/income-statement"
-                    className={`
-                      flex items-center gap-3
-                      px-4 py-2.5 rounded-xl
-                      text-xs font-medium transition-all duration-200
-                      ${
-                        location.pathname === "/reports/income-statement"
-                          ? "bg-green-600 text-white shadow-md shadow-green-900/10"
-                          : "text-slate-400 hover:bg-slate-800 hover:text-white"
-                      }
-                    `}
-                  >
-                    <TrendingUp size={16} />
-                    <span>Income Statement</span>
-                  </Link>
+                    return (
+                      <Link
+                        key={child.name}
+                        to={child.path}
+                        className={`
+                          flex items-center gap-3
+                          px-4 py-2.5 rounded-xl
+                          text-xs font-medium transition-all duration-200
+                          ${
+                            isChildActive
+                              ? "bg-green-600 text-white shadow-md shadow-green-900/10"
+                              : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                          }
+                        `}
+                      >
+                        <ChildIcon size={16} />
+                        <span>{child.name}</span>
+                      </Link>
+                    );
+                  })}
                 </div>
               )}
             </div>
