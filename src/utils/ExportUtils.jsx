@@ -1,5 +1,5 @@
 import { jsPDF } from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 
 /**
@@ -11,8 +11,8 @@ import * as XLSX from "xlsx";
 export const downloadPDF = (columns, data, fileName = "document.pdf") => {
   const doc = new jsPDF();
   
-  // Waxay dhalineysaa shaxda PDF-ka dhexdiisa ah
-  doc.autoTable({
+  // Waxay dhalineysaa shaxda PDF-ka dhexdiisa ah (Halkan ayaa la saxay)
+  autoTable(doc, {
     head: [columns],
     body: data,
     theme: "striped", // Waxaad u bedeli kartaa 'grid' ama 'plain'
