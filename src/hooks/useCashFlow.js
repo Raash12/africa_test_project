@@ -15,7 +15,7 @@ export default function useCashFlow() {
   const loading = l1 || l2 || l3 || l4 || l5;
 
   const cashFlowCalculations = useMemo(() => {
-    // 1. Samee khariidadda xisaabaadka (Account Map)
+    // 1. Samee khariidadda xisaabaadka
     const accountMap = accounts.reduce((acc, curr) => {
       const accId = curr.id || curr.docId;
       if (accId) {
@@ -34,7 +34,7 @@ export default function useCashFlow() {
       return acc;
     }, {});
 
-    // 2. Xisaabi Opening Cash (Lacagta rasmiga ah ee ku jirtay Khasnadda/Bankiga bilowgii)
+    // 2. Xisaabi Opening Cash
     let openingCash = Object.values(accountMap).reduce((sum, acc) => {
       const name = acc.name.toLowerCase();
       const isCashOrBank = name.includes("bank") || name.includes("cash") || name.includes("zaad") || name.includes("evc") || name.includes("salam");
@@ -108,29 +108,38 @@ export default function useCashFlow() {
       }
     });
 
-    // 7. XISAABI NET INCOME (Kaliya dakhliga iyo kharashka cusub ee muddadan)
+    // 7. KALA SOOC ACCOUNADA CUSUB (Inflows vs Outflows)
     let totalRevenue = 0;
     let totalExpenses = 0;
+    const cashInflows = [];
+    const cashOutflows = [];
 
     Object.values(accountMap).forEach((acc) => {
       const type = acc.accountType;
+      const movement = acc.balance - acc.openingBalance;
+
       if (type === "REVENUE" || type === "INCOME" || type === "REVENUES") {
-        totalRevenue += acc.balance;
+        totalRevenue += movement;
+        if (movement !== 0) {
+          cashInflows.push({ name: acc.name, amount: movement });
+        }
       } else if (type === "EXPENSES" || type === "EXPENSE") {
-        totalExpenses += acc.balance;
+        totalExpenses += movement;
+        if (movement !== 0) {
+          cashOutflows.push({ name: acc.name, amount: movement });
+        }
       }
     });
 
     const netIncome = totalRevenue - totalExpenses;
 
-    // 8. WORKING CAPITAL CHANGES (Isbeddelka Hantida iyo Deynta kale)
+    // 8. WORKING CAPITAL CHANGES
     let changeInInventory = 0;
     let changeInLiabilities = 0;
 
     Object.values(accountMap).forEach((acc) => {
       const type = acc.accountType;
       const name = acc.name.toLowerCase();
-      // Xisaabi isbeddelka dhabta ah intii report-ku socday (Current Balance - Opening Balance)
       const change = acc.balance - acc.openingBalance;
 
       if (type === "ASSETS" || type === "ASSET") {
@@ -143,21 +152,19 @@ export default function useCashFlow() {
       }
     });
 
-    // 9. FORMULA RECONCILIATION SAAXID AH:
-    // Net Operating Cash = Net Income ($1,000) + Liabilities ($100) - Inventory ($100) = $1,000
     const netOperatingCash = netIncome + changeInLiabilities - changeInInventory;
-    
     const netChangeInCash = netOperatingCash; 
-    const closingCash = openingCash + netChangeInCash; // $1,000 + $1,000 = $2,000 (SAX!)
+    const closingCash = openingCash + netChangeInCash;
 
     return {
       netIncome,
-      openingBalanceEquityAdjustment: 0, // Ka saar halkan si uusan laba jeer u xisaabin
       changeInInventory,
       changeInLiabilities,
       openingCash,
       netChangeInCash,
       closingCash,
+      cashInflows,   // Liiska dakhliga soo galay
+      cashOutflows,  // Liiska kharashka baxay
     };
   }, [accounts, payments, grants, purchaseInvoices, projects]);
 

@@ -16,12 +16,13 @@ const formatCurrency = (val) => {
 export default function CashFlowStatement() {
   const {
     netIncome,
-    openingBalanceEquityAdjustment,
     changeInInventory,
     changeInLiabilities,
     openingCash,
     netChangeInCash,
     closingCash,
+    cashInflows = [],
+    cashOutflows = [],
     loading
   } = useCashFlow();
 
@@ -95,55 +96,62 @@ export default function CashFlowStatement() {
             </thead>
               
             <tbody className="text-xs text-slate-700">
-              {/* OPERATING ACTIVITIES */}
-              <tr className="bg-slate-50/50 font-black text-[11px] text-[#1e3a8a] uppercase tracking-wide border-b border-slate-100">
-                <td colSpan="2" className="px-6 py-3">1. Cash from Daily Operations</td>
+              {/* CASH INFLOWS */}
+              <tr className="bg-blue-50/50 font-black text-[11px] text-blue-800 uppercase tracking-wide border-b border-slate-100">
+                <td colSpan="2" className="px-6 py-2.5">1. Cash Inflows (Lacagta Soo Gashta)</td>
               </tr>
-              
-              <tr className="border-b border-slate-100">
-                <td className="px-12 py-3.5 text-slate-800 font-medium">Money Made / Net Profit</td>
-                <td className="px-8 py-3.5 text-right font-semibold tabular-nums text-slate-900">{formatCurrency(netIncome)}</td>
-              </tr>
-
-              {/* Opening Balance Equity Adjustment Section */}
-              {openingBalanceEquityAdjustment !== 0 && (
+              {cashInflows.length === 0 ? (
                 <tr className="border-b border-slate-100">
-                  <td className="px-12 py-3.5 text-purple-700 italic font-medium">Adjustments: Opening Balance Equity</td>
-                  <td className="px-8 py-3.5 text-right font-semibold tabular-nums text-purple-700">{formatCurrency(openingBalanceEquityAdjustment)}</td>
+                  <td className="px-12 py-2 text-slate-400 italic">No income recorded</td>
+                  <td className="px-8 py-2 text-right text-slate-400">$0.00</td>
                 </tr>
+              ) : (
+                cashInflows.map((inflow, i) => (
+                  <tr key={i} className="border-b border-slate-100">
+                    <td className="px-12 py-2.5 text-slate-800 pl-16 font-medium">{inflow.name}</td>
+                    <td className="px-8 py-2.5 text-right font-semibold tabular-nums text-emerald-600">+{formatCurrency(inflow.amount)}</td>
+                  </tr>
+                ))
+              )}
+
+              {/* CASH OUTFLOWS */}
+              <tr className="bg-red-50/40 font-black text-[11px] text-red-800 uppercase tracking-wide border-b border-slate-100 mt-2">
+                <td colSpan="2" className="px-6 py-2.5">2. Cash Outflows (Lacagta Baxday)</td>
+              </tr>
+              {cashOutflows.length === 0 ? (
+                <tr className="border-b border-slate-100">
+                  <td className="px-12 py-2 text-slate-400 italic">No expenses recorded</td>
+                  <td className="px-8 py-2 text-right text-slate-400">$0.00</td>
+                </tr>
+              ) : (
+                cashOutflows.map((outflow, i) => (
+                  <tr key={i} className="border-b border-slate-100">
+                    <td className="px-12 py-2.5 text-slate-800 pl-16 font-medium">{outflow.name}</td>
+                    <td className="px-8 py-2.5 text-right font-semibold tabular-nums text-red-600">-{formatCurrency(outflow.amount)}</td>
+                  </tr>
+                ))
               )}
 
               {/* Working Capital Adjustments */}
-              <tr className="border-b border-slate-100">
-                <td className="px-12 py-3.5 text-slate-600 pl-16">Money Tied Up in Stock (Inventory)</td>
-                <td className="px-8 py-3.5 text-right font-semibold tabular-nums text-red-600">{formatCurrency(-changeInInventory)}</td>
+              <tr className="bg-slate-50/50 font-black text-[11px] text-slate-700 uppercase tracking-wide border-b border-slate-100">
+                <td colSpan="2" className="px-6 py-2.5">3. Other Operating Adjustments</td>
               </tr>
-              
               <tr className="border-b border-slate-100">
-                <td className="px-12 py-3.5 text-slate-600 pl-16">Unpaid Bills / Money We Owe Others</td>
-                <td className="px-8 py-3.5 text-right font-semibold tabular-nums text-emerald-600">{formatCurrency(changeInLiabilities)}</td>
+                <td className="px-12 py-2.5 text-slate-600 pl-16">Money Tied Up in Stock (Inventory)</td>
+                <td className="px-8 py-2.5 text-right font-semibold tabular-nums text-red-600">{formatCurrency(-changeInInventory)}</td>
+              </tr>
+              <tr className="border-b border-slate-100">
+                <td className="px-12 py-2.5 text-slate-600 pl-16">Unpaid Bills / Money We Owe Others</td>
+                <td className="px-8 py-2.5 text-right font-semibold tabular-nums text-emerald-600">{formatCurrency(changeInLiabilities)}</td>
               </tr>
 
-              <tr className="bg-slate-50/30 font-bold text-slate-900 border-b-2 border-slate-200">
-                <td className="px-8 py-3.5 font-bold text-slate-800 uppercase tracking-tight">Total Cash Made from Operations</td>
-                <td className="px-8 py-3.5 text-right font-bold text-slate-900 tabular-nums">{formatCurrency(netChangeInCash)}</td>
+              {/* NET CHANGE */}
+              <tr className="bg-slate-50/80 font-bold text-slate-900 border-b-2 border-slate-200">
+                <td className="px-8 py-3 uppercase tracking-tight text-[11px]">Total Net Cash Change</td>
+                <td className="px-8 py-3 text-right font-bold text-blue-600 tabular-nums">{formatCurrency(netChangeInCash)}</td>
               </tr>
 
               {/* SUMMARY RECONCILIATION */}
-              <tr className="bg-slate-50/50 font-black text-[11px] text-slate-500 uppercase tracking-wide border-b border-slate-100">
-                <td colSpan="2" className="px-6 py-3">2. Cash Summary</td>
-              </tr>
-
-              <tr className="border-b border-slate-100">
-                <td className="px-12 py-3.5 font-medium text-slate-700">Starting Cash (Beginning of Year)</td>
-                <td className="px-8 py-3.5 text-right font-semibold tabular-nums text-slate-600">{formatCurrency(openingCash)}</td>
-              </tr>
-
-              <tr className="border-b border-slate-100">
-                <td className="px-12 py-3.5 font-medium text-blue-600">New Cash Added This Period</td>
-                <td className="px-8 py-3.5 text-right font-bold tabular-nums text-blue-600">{formatCurrency(netChangeInCash)}</td>
-              </tr>
-
               <tr className="bg-slate-100 font-black border-t-2 border-slate-400">
                 <td className="px-8 py-4 uppercase tracking-wider text-xs text-slate-800 font-black">Final Cash Balance (End of Year)</td>
                 <td className="px-8 py-4 text-right tabular-nums text-base font-black text-emerald-600 border-b-4 border-double border-slate-900">
