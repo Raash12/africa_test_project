@@ -38,6 +38,7 @@ import GeneralExpenseForm from "./pages/payroll/GeneralExpenseForm";
 import TrialBalance from "@/pages/FinancialReport/TrialBalance";
 import IncomeStatement from "@/pages/FinancialReport/IncomeStatement"; // Kani waa kii lagu daray
 import BalanceSheet from "@/pages/FinancialReport/BalanceSheet";
+import CashFlowStatement from "@/pages/FinancialReport/CashFlowStatement";
 
 // REPORTS - Import both reports
 import GrantReport from "@/pages/reports/GrantReport";
@@ -128,6 +129,7 @@ export default function App() {
         <Route path="reports/trial-balance" element={<TrialBalance />} />
         <Route path="reports/income-statement" element={<IncomeStatement />} /> 
         <Route path="reports/balance-sheet" element={<BalanceSheet />} />
+        <Route path="reports/cash-flow" element={<CashFlowStatement />} />
         {/* PAYROLL */}
         <Route path="salary-expenses" element={<ListSalaryExpense />} />
         <Route path="salary-form" element={<SalaryForm />} />

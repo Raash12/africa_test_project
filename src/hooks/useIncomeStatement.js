@@ -1,4 +1,3 @@
-// src/hooks/useIncomeStatement.js
 import { useState, useEffect, useMemo } from "react";
 import { fetchIncomeStatementRawData } from "@/services/FinancialReport/IncomeStatementService";
 
@@ -10,10 +9,13 @@ export default function useIncomeStatement() {
   useEffect(() => {
     fetchIncomeStatementRawData()
       .then(data => {
+        // 1. Log-gaan wuxuu ku tusayaa dhamaan xogta Firebase ka timaada
+        console.log("[DEBUG IS] Firebase Raw Data Loaded:", data);
         setRawData(data);
         setLoading(false);
       })
       .catch(err => {
+        console.error("[DEBUG IS] Error fetching raw data:", err);
         setError(err);
         setLoading(false);
       });
@@ -22,9 +24,12 @@ export default function useIncomeStatement() {
   const incomeStatementData = useMemo(() => {
     if (!rawData) return { revenueList: [], expenseList: [], totalRevenue: 0, totalExpense: 0, netIncome: 0 };
 
-    const { accounts, payments, grants, projects } = rawData;
+    // 💡 FIIRI: Halkan waxaan ku soo dagnay purchaseInvoices si uu nidaamku u akhriyo
+    const { accounts = [], payments = [], grants = [], projects = [], purchaseInvoices = [] } = rawData;
 
-    // A. Samee khariidada akoonada (Account Map)
+    // 2. Log-gaan wuxuu ku tusayaa Invoices-ka soo galay Income Statement-ka
+    console.log("[DEBUG IS] Purchase Invoices Array:", purchaseInvoices);
+
     const accountMap = accounts.reduce((acc, curr) => {
       const accId = curr.id || curr.docId;
       if (accId) {
@@ -71,6 +76,27 @@ export default function useIncomeStatement() {
       }
     });
 
+    // 💡 QABO QALADKA INVOICES: Halkan waxaa lagu daray xisaabinta Invoices-ka dhabta ah
+    purchaseInvoices.forEach(inv => {
+      const amt = Number(inv.totalAmount || 0);
+      if (amt <= 0) return;
+
+      // Maadaama payload-kaagu uu leeyahay `inventoryAccountId`, waxaan hubineynaa account-kaas noociisa
+      const expAccId = inv.inventoryAccountId; 
+      
+      if (expAccId && accountMap[expAccId]) {
+        // Haddii account-ku uu yahay Expense (Kharash), ku dar Income Statement-ka
+        if (accountMap[expAccId].accountType === "Expenses") {
+          const accName = accountMap[expAccId].name;
+          expenseBalances[accName] = (expenseBalances[accName] || 0) + amt;
+          console.log(`[DEBUG IS] Invoice kordhiyay Kharash: ${accName} -> +${amt}`);
+        } else {
+          // Haddii uu yahay Asset (sida Inventory-gaaga), halkan laguma darayo (waa sidii sharciga xisaabtu ahaa)
+          console.log(`[DEBUG IS] Invoice laguma darin IS sababtoo ah waa Hanti (Asset):`, accountMap[expAccId].name);
+        }
+      }
+    });
+
     // D. Xisaabi Kharashyada Mashaariicda (Projects -> Expense)
     projects.forEach(proj => {
       const projectExpenseAmt = Number(proj.budgetUsed || proj.totalValue || 0);
@@ -82,7 +108,6 @@ export default function useIncomeStatement() {
       }
     });
 
-    // E. U kala beddel qaab Array ah
     const revenueList = Object.keys(revenueBalances).map(name => ({ name, amount: revenueBalances[name] }));
     const expenseList = Object.keys(expenseBalances).map(name => ({ name, amount: expenseBalances[name] }));
 

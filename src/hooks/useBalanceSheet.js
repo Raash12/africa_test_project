@@ -31,7 +31,10 @@ export default function useBalanceSheet() {
       return acc;
     }, {});
 
-    // 2. Ku dar xogtii dhabta ahayd ee ka dhalatay Payments (Kharashyada & Bankiga)
+    // [CONSOLE LOG DEBUGER]: Hubi in akoonadu ay sax yihiin
+    console.log("=== BALANCE SHEET ACCOUNT MAP ===", accountMap);
+
+    // 2. Payments (Kharashyada & Bankiga)
     payments.forEach((p) => {
       const amt = Number(p.amount ?? p.amountPaid ?? 0);
       if (amt <= 0) return;
@@ -49,7 +52,7 @@ export default function useBalanceSheet() {
       }
     });
 
-    // 3. Ku dar xogta Deeqaha (Grants)
+    // 3. Deeqaha (Grants)
     grants.forEach((g) => {
       const amt = Number(g.amount || 0);
       if (amt <= 0) return;
@@ -67,20 +70,39 @@ export default function useBalanceSheet() {
       }
     });
 
-    // 4. Ku dar xogta Invoices-ka (Purchase Invoices)
+    // 4. FIX QAAYBTA: Purchase Invoices (Koodhkii saxda ahaa ee payload-kaaga raacay)
+    console.log("=== RAW PURCHASE INVOICES ===", purchaseInvoices);
+
     purchaseInvoices.forEach((inv) => {
-      const amt = Number(inv.totalAmount || 0);
+      const amt = Number(inv.totalAmount || 0); // Kani waa 'totalAmount' kii aad soo dirtay
       if (amt <= 0) return;
 
+      // A. Inventory Account (Debit)
       if (accountMap[inv.inventoryAccountId]) {
-        accountMap[inv.inventoryAccountId].balance += amt;
+        if (accountMap[inv.inventoryAccountId].normalBalance === "Debit") {
+          accountMap[inv.inventoryAccountId].balance += amt;
+        } else {
+          accountMap[inv.inventoryAccountId].balance -= amt;
+        }
+        console.log(`Cusbooneysiin: ${accountMap[inv.inventoryAccountId].name} += ${amt}`);
+      } else {
+        console.warn(`WARN: inventoryAccountId (${inv.inventoryAccountId}) lagama helin accountMap-ka!`);
       }
+
+      // B. Liability Account (Credit)
       if (accountMap[inv.liabilityAccountId]) {
-        accountMap[inv.liabilityAccountId].balance += amt;
+        if (accountMap[inv.liabilityAccountId].normalBalance === "Credit") {
+          accountMap[inv.liabilityAccountId].balance += amt;
+        } else {
+          accountMap[inv.liabilityAccountId].balance -= amt;
+        }
+        console.log(`Cusbooneysiin: ${accountMap[inv.liabilityAccountId].name} += ${amt}`);
+      } else {
+        console.warn(`WARN: liabilityAccountId (${inv.liabilityAccountId}) lagama helin accountMap-ka!`);
       }
     });
 
-    // 5. Ku dar xogta Mashaariicda (Projects)
+    // 5. Mashaariicda (Projects)
     projects.forEach((proj) => {
       const amt = Number(proj.totalValue || 0);
       if (amt <= 0) return;
@@ -93,7 +115,7 @@ export default function useBalanceSheet() {
       }
     });
 
-    // 6. Kala sooc qaybaha Balance Sheet-ka (Assets, Liabilities, Equity)
+    // 6. Kala sooc qaybaha Balance Sheet-ka
     const assetsList = [];
     const liabilitiesList = [];
     const equityList = [];
@@ -109,11 +131,11 @@ export default function useBalanceSheet() {
         assetsList.push({ name: acc.name, amount: acc.balance });
         totalAssets += acc.balance;
       } else if (type === "liabilities" || type === "liability") {
-        liabilitiesList.push({ name: acc.name, amount: acc.balance });
+         liabilitiesList.push({ name: acc.name, amount: acc.balance });
         totalLiabilities += acc.balance;
       } else if (type === "equity") {
-        equityList.push({ name: acc.name, amount: acc.balance });
-        totalEquity += acc.balance;
+         equityList.push({ name: acc.name, amount: acc.balance });
+         totalEquity += acc.balance;
       }
     });
 
