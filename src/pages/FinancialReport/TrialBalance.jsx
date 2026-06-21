@@ -18,6 +18,8 @@ import useAccounts from "@/hooks/useAccounts";
 import usePaymentEntry from "@/hooks/usePaymentEntry"; 
 import useGrants from "@/hooks/useGrants";
 import usePurchaseInvoices from "@/hooks/usePurchaseInvoices"; 
+import useProjects from "@/hooks/useProjects";
+import useJournalEntries from "@/hooks/useJournalEntries";
 import { downloadPDF, downloadExcel } from "@/utils/ExportUtils";
 import logo from "@/assets/logo.jpeg";
 
@@ -35,18 +37,30 @@ export default function TrialBalance() {
   const hooksPayments = usePaymentEntry() || {};
   const hooksGrants = useGrants() || {};
   const hooksInvoices = usePurchaseInvoices() || {}; 
+  const hooksProjects = useProjects() || {};
+  const hooksJournal = useJournalEntries() || {};
 
   const accounts = hooksAccounts.accounts || hooksAccounts.data || [];
   const payments = hooksPayments.payments || hooksPayments.paymentEntries || hooksPayments.data || [];
   const grants = hooksGrants.grants || hooksGrants.data || [];
   const purchaseInvoices = hooksInvoices.purchaseInvoices || []; 
+  const projects = hooksProjects.projects || [];
+  const journalEntries = hooksJournal.journalEntries || hooksJournal.data || [];
 
-  const isLoading = hooksAccounts.loading || hooksPayments.loading || hooksGrants.loading || hooksInvoices.loading;
+  const isLoading = 
+    hooksAccounts.loading || 
+    hooksPayments.loading || 
+    hooksGrants.loading || 
+    hooksInvoices.loading ||
+    hooksProjects.loading ||
+    hooksJournal.loading;
 
   const [selectedType, setSelectedType] = useState("");
   const [balanceFilter, setBalanceFilter] = useState(""); 
   const [search, setSearch] = useState("");
   const [exporting, setExporting] = useState(false);
+
+  const accountTypes = ["Assets", "Liabilities", "Equity", "Revenue", "Expenses"];
 
   // Ledger Engine & Aggregation for Trial Balance
   const trialBalanceData = useMemo(() => {
@@ -56,16 +70,24 @@ export default function TrialBalance() {
     let totalOpeningDebit = 0;
     let totalOpeningCredit = 0;
     
-    // 1. Diiwaangeli Opening Balances-ka si sax ah
+    // 1. Diiwaangeli dhamaan akoonada rasmiga ah
     accounts.forEach(acc => {
       const accId = acc.id || acc.docId;
       if (accId) {
-        const oBalance = Number(acc.openingBalance ?? acc.balance ?? 0);
+        const oBalance = Number(acc.openingBalance ?? acc.opening_balance ?? acc.balance ?? 0);
         
-        const isCreditAccount = acc.normalBalance === "Credit" || 
-                                acc.accountType === "Revenue" || 
-                                acc.accountType === "Liability" || 
-                                acc.accountType === "Equity";
+        const rawCategory = acc.accountType || acc.category || "Assets";
+        let standardizedType = "Assets";
+
+        if (/asset/i.test(rawCategory)) standardizedType = "Assets";
+        else if (/liabilit/i.test(rawCategory)) standardizedType = "Liabilities";
+        else if (/equity/i.test(rawCategory)) standardizedType = "Equity";
+        else if (/revenue/i.test(rawCategory)) standardizedType = "Revenue";
+        else if (/expense/i.test(rawCategory)) standardizedType = "Expenses";
+
+        const isCreditAccount = standardizedType === "Revenue" || 
+                                standardizedType === "Liabilities" || 
+                                standardizedType === "Equity";
 
         if (isCreditAccount) {
           totalOpeningCredit += oBalance;
@@ -74,28 +96,35 @@ export default function TrialBalance() {
         }
 
         balances[accId] = {
-          code: acc.accountCode || "-",
+          code: acc.accountCode || acc.glCode || acc.code || "-",
           name: acc.accountName || acc.name || "Unnamed Account",
-          accountType: acc.accountType || "Assets",
+          accountType: standardizedType,
           debit: isCreditAccount ? 0 : oBalance,
           credit: isCreditAccount ? oBalance : 0,
         };
       }
     });
 
-    // AUTO-BALANCE OPENING BALANCES
+    // Isku-dheelitirka Opening Balance Equity (Auto Accumulation)
     const openingDiff = totalOpeningDebit - totalOpeningCredit;
     if (Math.abs(openingDiff) > 0.01) {
-      balances["opening_balance_equity_auto_id"] = {
-        code: "3000",
-        name: "Opening Balance Equity",
-        accountType: "Equity",
-        debit: openingDiff < 0 ? Math.abs(openingDiff) : 0,
-        credit: openingDiff > 0 ? Math.abs(openingDiff) : 0,
-      };
+      const existingEquityKey = Object.keys(balances).find(key => balances[key].code === "3000");
+      
+      if (existingEquityKey) {
+        if (openingDiff < 0) balances[existingEquityKey].debit += Math.abs(openingDiff);
+        else balances[existingEquityKey].credit += Math.abs(openingDiff);
+      } else {
+        balances["opening_balance_equity_auto_id"] = {
+          code: "3000",
+          name: "Opening Balance Equity",
+          accountType: "Equity",
+          debit: openingDiff < 0 ? Math.abs(openingDiff) : 0,
+          credit: openingDiff > 0 ? Math.abs(openingDiff) : 0,
+        };
+      }
     }
 
-    // 2. Xisaabi Payments
+    // 2. Payments
     payments.forEach(p => {
       const amt = Number(p.amount ?? p.amountPaid ?? p.mountPaid ?? 0);
       if (amt <= 0) return;
@@ -105,7 +134,7 @@ export default function TrialBalance() {
       if (credId && balances[credId]) balances[credId].credit += amt;
     });
 
-    // 3. Xisaabi Grants
+    // 3. Grants
     grants.forEach(g => {
       const amt = Number(g.amount || 0);
       if (amt <= 0) return;
@@ -115,7 +144,7 @@ export default function TrialBalance() {
       if (revId && balances[revId]) balances[revId].credit += amt;
     });
 
-    // 4. Xisaabi Purchase Invoices
+    // 4. Purchase Invoices
     purchaseInvoices.forEach(inv => {
       const amt = Number(inv.totalAmount || 0);
       if (amt <= 0) return;
@@ -125,7 +154,42 @@ export default function TrialBalance() {
       if (liabId && balances[liabId]) balances[liabId].credit += amt;
     });
 
-    // 5. Netting Off
+    // 5. Project Budgets
+    projects.forEach(proj => {
+      const projectExpenseAmt = Number(proj.budgetUsed || proj.totalExpense || proj.expense || proj.totalValue || 0);
+      if (projectExpenseAmt > 0) {
+        const expAccId = proj.expenseAccountId; 
+        const payAccId = proj.payableAccountId || proj.cashAccountId || proj.assetAccountId; 
+
+        if (expAccId && balances[expAccId]) balances[expAccId].debit += projectExpenseAmt;
+        if (payAccId && balances[payAccId]) balances[payAccId].credit += projectExpenseAmt;
+      }
+    });
+
+    // 6. Journal Entries Support
+    journalEntries.forEach(entry => {
+      if (Array.isArray(entry.items || entry.lines)) {
+        (entry.items || entry.lines).forEach(line => {
+          const accId = line.accountId || line.account;
+          const dr = Number(line.debit || 0);
+          const cr = Number(line.credit || 0);
+          if (accId && balances[accId]) {
+            balances[accId].debit += dr;
+            balances[accId].credit += cr;
+          }
+        });
+      } else {
+        const drAmt = Number(entry.debit || entry.amount || 0);
+        const crAmt = Number(entry.credit || entry.amount || 0);
+        const drAcc = entry.debitAccountId || entry.accountId;
+        const crAcc = entry.creditAccountId || entry.fromAccountId;
+
+        if (drAmt > 0 && drAcc && balances[drAcc]) balances[drAcc].debit += drAmt;
+        if (crAmt > 0 && crAcc && balances[crAcc]) balances[crAcc].credit += crAmt;
+      }
+    });
+
+    // 7. Netting Off
     return Object.values(balances).map(acc => {
       let finalDebit = 0;
       let finalCredit = 0;
@@ -143,12 +207,8 @@ export default function TrialBalance() {
         debit: finalDebit,
         credit: finalCredit
       };
-    }).filter(acc => acc.debit > 0 || acc.credit > 0);
-  }, [accounts, payments, grants, purchaseInvoices]);
-
-  const accountTypes = useMemo(() => {
-    return [...new Set(trialBalanceData.map(acc => acc.accountType))].sort();
-  }, [trialBalanceData]);
+    }); 
+  }, [accounts, payments, grants, purchaseInvoices, projects, journalEntries]);
 
   const filteredData = useMemo(() => {
     let result = [...trialBalanceData];
@@ -262,8 +322,7 @@ export default function TrialBalance() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6 bg-slate-50 min-h-screen font-sans antialiased text-slate-900">
-      
-      {/* Clean Premium Blue Header */}
+      {/* Header */}
       <div className="bg-[#1e3a8a] rounded-2xl p-6 shadow-md text-white">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="flex items-center gap-4">
@@ -286,7 +345,7 @@ export default function TrialBalance() {
         </div>
       </div>
 
-      {/* Balanced Summary Cards (Using Blue Accents) */}
+      {/* Analytics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="bg-white border border-slate-200 shadow-none rounded-xl border-l-4 border-l-blue-600">
           <CardContent className="p-4 flex items-center justify-between">
@@ -365,7 +424,7 @@ export default function TrialBalance() {
         </CardContent>
       </Card>
 
-      {/* Modern Blue Accounting Table */}
+      {/* Table Data */}
       <Card className="border border-slate-200 shadow-none rounded-xl overflow-hidden bg-white">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -391,7 +450,7 @@ export default function TrialBalance() {
                     <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-6 py-3.5 font-mono text-blue-700 font-bold tracking-tight">{row.code}</td>
                       <td className="px-6 py-3.5 font-bold text-slate-900">{row.name}</td>
-                      <td className="px-6 py-3.5 text-slate-500 font-medium">{row.accountType}</td>
+                      <td className="px-6 py-3.5 text-slate-500 font-medium uppercase">{row.accountType}</td>
                       <td className="px-6 py-3.5 text-right font-semibold tabular-nums text-slate-900">
                         {row.debit > 0 ? formatCurrency(row.debit) : "—"}
                       </td>

@@ -16,25 +16,29 @@ export default function ListJournalEntries() {
 
   const loading = loadingEntries || loadingAccounts || loadingGrants;
 
+  // Habka loogu beddelo taariikh kasta nidaamka rasmiga ah ee JavaScript Date Object
   const parseEntryDate = (dateField) => {
-    if (!dateField) return new Date();
+    if (!dateField) return new Date(0); // Haddii aysan jirin taariikh, hoos ha u dhacdo
     if (typeof dateField.toDate === "function") return dateField.toDate();
     if (dateField.seconds) return new Date(dateField.seconds * 1000);
     const d = new Date(dateField);
-    return isNaN(d.getTime()) ? new Date() : d;
+    return isNaN(d.getTime()) ? new Date(0) : d;
   };
 
-  // 1. CONSOLIDATED ENGINE
+  // 1. CONSOLIDATED ENGINE & SMART DUPLICATE PREVENTION
   const consolidatedEntries = useMemo(() => {
-    let allEntries = [...entries];
+    const allEntries = [...entries];
+    const trackGrantIds = new Set();
 
     // Accounts Opening Balances
     accounts.forEach(acc => {
+      const accId = acc.id || acc.docId;
       const oBalance = Number(acc.openingBalance ?? acc.balance ?? 0);
-      if (oBalance > 0) {
-        if (!allEntries.some(e => e.id === `auto-open-${acc.id || acc.docId}`)) {
+      if (oBalance > 0 && accId) {
+        const uniqueOpenId = `auto-open-${accId}`;
+        if (!allEntries.some(e => e.id === uniqueOpenId)) {
           allEntries.push({
-            id: `auto-open-${acc.id || acc.docId}`,
+            id: uniqueOpenId,
             docNo: `JE-OPEN`,
             date: acc.createdAt || new Date().toISOString(),
             description: `📥 Opening Balance Setup: ${acc.accountName}`,
@@ -49,17 +53,31 @@ export default function ListJournalEntries() {
 
     // Grants Auto Entries
     grants.forEach(g => {
+      const grantId = g.id || g.docId;
+      if (!grantId) return;
+
       const amt = Number(g.amount || 0);
-      const recAccount = accounts.find(a => a.id === g.receivingAccountId);
-      const revAccount = accounts.find(a => a.id === g.revenueAccountId);
+      const recAccount = accounts.find(a => a.id === g.receivingAccountId || a.docId === g.receivingAccountId);
+      const revAccount = accounts.find(a => a.id === g.revenueAccountId || a.docId === g.revenueAccountId);
 
       if (amt > 0) {
-        if (!allEntries.some(e => e.id === `auto-grant-${g.id}`)) {
+        const uniqueGrantId = `auto-grant-${grantId}`;
+        const targetDescription = `Grant Funding Received: ${g.grantName || ""}`.trim().toLowerCase();
+        
+        // Hubi in JE-CUSTOM horey loogu dhex qoray sharraxaaddaan oo kale
+        const isAlreadyInCustomJE = entries.some(e => {
+          const desc = (e.description || "").toLowerCase();
+          return desc.includes(targetDescription) || desc.includes((g.grantName || "").toLowerCase());
+        });
+
+        if (!allEntries.some(e => e.id === uniqueGrantId) && !trackGrantIds.has(grantId) && !isAlreadyInCustomJE) {
+          trackGrantIds.add(grantId);
+          
           allEntries.push({
-            id: `auto-grant-${g.id}`,
+            id: uniqueGrantId,
             docNo: `JE-GRANT`,
             date: g.createdAt ? (typeof g.createdAt.toDate === "function" ? g.createdAt.toDate().toISOString() : g.createdAt) : new Date().toISOString(),
-            description: `💰 Grant Funding Received: ${g.grantName}`,
+            description: `💰 Grant Funding Received: ${g.grantName || "Untitled Grant"}`,
             items: [
               { 
                 accountName: recAccount ? recAccount.accountName : "Unknown Bank Account", 
@@ -82,7 +100,7 @@ export default function ListJournalEntries() {
     return allEntries;
   }, [entries, accounts, grants]);
 
-  // 2. FILTER & SORT ENGINE (Ugu dambeeyay ayaa ugu sarreeya)
+  // 2. FILTER & SORT ENGINE (KII UGU DAMBEYAY AYAA UGU KORREEYA)
   const filteredEntries = useMemo(() => {
     return consolidatedEntries
       .filter(e => {
@@ -109,8 +127,12 @@ export default function ListJournalEntries() {
 
         return matchesSearch && matchesDate;
       })
-      // Sorting: Taariikhda cusub ayaa ugu sarreysa
-      .sort((a, b) => parseEntryDate(b.date).getTime() - parseEntryDate(a.date).getTime());
+      // ENGINE SORT: Halkan waxaan ku qasabnay in xogta ugu dambeysay (b) laga jaro tii hore (a) si ay kor ugu marto
+      .sort((a, b) => {
+        const timeA = parseEntryDate(a.date).getTime();
+        const timeB = parseEntryDate(b.date).getTime();
+        return timeB - timeA; 
+      });
   }, [consolidatedEntries, search, startDate, endDate]);
 
   return (
