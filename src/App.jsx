@@ -6,7 +6,6 @@ import { Loader2 } from "lucide-react";
 import Login from "@/auth/Login";
 import DashboardLayout from "@/layouts/DashboardLayout";
 
-// PAGES
 import DashboardHome from "@/pages/DashboardHome";
 import EmployeesList from "@/pages/employees/EmployeesList";
 import ItemsPage from "@/pages/Item/ListItem";
@@ -18,7 +17,7 @@ import Donors from "@/pages/donors/ListDonor";
 import Grants from "@/pages/grants/ListGrant"; 
 import Projects from "@/pages/projects/ListProject";
 
-// 🌟 WAA LAGA SAARAY IMPORT-KII BENEFICIARIES EE LINE-KA 18
+
 
 import ListSupplier from "@/pages/Suppliers/ListSupplier";
 import ListPurchaseOrder from "@/pages/Purchase/PurchaseOrder/ListPurchaseOrder"; 
