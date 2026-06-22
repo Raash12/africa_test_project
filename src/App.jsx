@@ -1,7 +1,7 @@
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { Loader2 } from "lucide-react"; // 🌟 Waxaan keenay spinner
+import { Loader2 } from "lucide-react"; 
 
 import Login from "@/auth/Login";
 import DashboardLayout from "@/layouts/DashboardLayout";
@@ -19,21 +19,23 @@ import Grants from "@/pages/grants/ListGrant";
 import Projects from "@/pages/projects/ListProject";
 import Beneficiaries from "@/pages/beneficiaries/ListBeneficiary"; 
 import ListSupplier from "@/pages/Suppliers/ListSupplier";
-import ListPurchaseOrder from "@/pages/Purchase/PurchaseOrder/ListPurchaseOrder";
-import ListPurchaseInvoice from "./pages/Purchase/PurchaseInvoice/ListPurchaseInvoice";
-import ListPaymentEntry from "./pages/Payment/ListPaymentEntry";
-import ListWarehouse from "./pages/Inventory/ListWarehouse";
-import ListStockIn from "./pages/Inventory/ListStockIn";
-import ListStockOut from "./pages/Inventory/ListStockOut";
-import ListFiscalYear from "./pages/Accounting/ListFiscalYear";
-import ListAccounts from "./pages/Accounting/ListAccounts";
-import ListFinanceBook from "./pages/Accounting/ListFinanceBook";
-import ListJournalEntries from "./pages/Accounting/ListJournalEntries";
-import ListGeneralLedger from "./pages/Accounting/ListGeneralLedger";
-import ListSalaryExpense from "./pages/payroll/ListSalaryExpense";
-import SalaryForm from "./pages/payroll/SalaryForm";
-import ListGeneralExpense from "./pages/payroll/ListGeneralExpense";
-import GeneralExpenseForm from "./pages/payroll/GeneralExpenseForm";
+
+// 🌟 HALKAN WAXAAN KAGA DHIGNAY `@/` DHAMMAAN KUWII DHIBAATADA WADAY
+import ListPurchaseOrder from "@/pages/Purchase/PurchaseOrder/ListPurchaseOrder"; 
+import ListPurchaseInvoice from "@/pages/Purchase/PurchaseInvoice/ListPurchaseInvoice";
+import ListPaymentEntry from "@/pages/Payment/ListPaymentEntry";
+import ListWarehouse from "@/pages/Inventory/ListWarehouse";
+import ListStockIn from "@/pages/Inventory/ListStockIn";
+import ListStockOut from "@/pages/Inventory/ListStockOut";
+import ListFiscalYear from "@/pages/Accounting/ListFiscalYear";
+import ListAccounts from "@/pages/Accounting/ListAccounts";
+import ListFinanceBook from "@/pages/Accounting/ListFinanceBook";
+import ListJournalEntries from "@/pages/Accounting/ListJournalEntries";
+import ListGeneralLedger from "@/pages/Accounting/ListGeneralLedger";
+import ListSalaryExpense from "@/pages/payroll/ListSalaryExpense";
+import SalaryForm from "@/pages/payroll/SalaryForm";
+import ListGeneralExpense from "@/pages/payroll/ListGeneralExpense";
+import GeneralExpenseForm from "@/pages/payroll/GeneralExpenseForm";
 
 // TRIAL BALANCE & INCOME STATEMENT IMPORTS
 import TrialBalance from "@/pages/FinancialReport/TrialBalance";
@@ -47,7 +49,7 @@ import ProjectReport from "@/pages/reports/ProjectReport";
 
 // 🔐 PROTECTED ROUTE: Waxay hortaagan tahay boggaga xasaasiga ah inta loading-ku jiro
 function ProtectedRoute({ children }) {
-  const { currentUser, loading } = useAuth(); // 🌟 Hubi in loading uu ku jiro AuthContext-kaaga
+  const { currentUser, loading } = useAuth(); 
 
   if (loading) {
     return (
@@ -65,9 +67,9 @@ function ProtectedRoute({ children }) {
 }
 
 export default function App() {
-  const { currentUser, loading } = useAuth(); // 🌟 Dib u soo celi loading-kii halkan
+  const { currentUser, loading } = useAuth(); 
 
-  // 🌟 Halkan haddii bogga la refresh gareeyo, loogin u carari mayo, meeshaan ayuu ku hakanayaa
+  // 🌟 Halkan haddii bogga la refresh gareeyo, meeshaan ayuu ku hakanayaa si uusan login u aadin
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen bg-slate-50 dark:bg-slate-950">
@@ -86,7 +88,7 @@ export default function App() {
 
       <Route
         path="/"
-        element = {
+        element={
           <ProtectedRoute>
             <DashboardLayout />
           </ProtectedRoute>
