@@ -36,27 +36,17 @@ import GeneralExpenseForm from "./pages/payroll/GeneralExpenseForm";
 
 // TRIAL BALANCE & INCOME STATEMENT IMPORTS
 import TrialBalance from "@/pages/FinancialReport/TrialBalance";
-import IncomeStatement from "@/pages/FinancialReport/IncomeStatement"; // Kani waa kii lagu daray
+import IncomeStatement from "@/pages/FinancialReport/IncomeStatement"; 
 import BalanceSheet from "@/pages/FinancialReport/BalanceSheet";
 import CashFlowStatement from "@/pages/FinancialReport/CashFlowStatement";
 
-// REPORTS - Import both reports
+// REPORTS
 import GrantReport from "@/pages/reports/GrantReport";
 import ProjectReport from "@/pages/reports/ProjectReport";
 
+// 🔐 PROTECTED ROUTE: Hubinta isticmaalaha oo kaliya, looma baahna shaashad hortaagan
 function ProtectedRoute({ children }) {
-  const { currentUser, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-4 border-[#1e3a8a] border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-slate-600 dark:text-slate-400 font-medium">Connecting AIF ERP...</p>
-        </div>
-      </div>
-    );
-  }
+  const { currentUser } = useAuth();
 
   if (!currentUser) {
     return <Navigate to="/login" replace />;
@@ -66,21 +56,11 @@ function ProtectedRoute({ children }) {
 }
 
 export default function App() {
-  const { currentUser, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-slate-600 dark:text-slate-400 font-medium font-mono">Loading AIF ERP...</p>
-        </div>
-      </div>
-    );
-  }
+  const { currentUser } = useAuth(); // Waxaan ka saarnay 'loading' state-kii halkan si uusan u hakan
 
   return (
     <Routes>
+      {/* LOGIN ROUTE: Marka login la taabto isla markiiba wuxuu u wareegayaa Dashboard-ka */}
       <Route 
         path="/login" 
         element={currentUser ? <Navigate to="/" replace /> : <Login />} 
@@ -130,13 +110,14 @@ export default function App() {
         <Route path="reports/income-statement" element={<IncomeStatement />} /> 
         <Route path="reports/balance-sheet" element={<BalanceSheet />} />
         <Route path="reports/cash-flow" element={<CashFlowStatement />} />
+        
         {/* PAYROLL */}
         <Route path="salary-expenses" element={<ListSalaryExpense />} />
         <Route path="salary-form" element={<SalaryForm />} />
         <Route path="general-expenses" element={<ListGeneralExpense />} />
         <Route path="general-expense-form" element={<GeneralExpenseForm />} />
         
-        {/* REPORTS ROUTES - Updated to match sidebar links */}
+        {/* REPORTS ROUTES */}
         <Route path="reports/grants" element={<GrantReport />} />
         <Route path="reports/projects" element={<ProjectReport />} />
       </Route>
