@@ -1,10 +1,17 @@
 import { useEffect, useState, useMemo } from "react";
 import { getUsers, deleteUser } from "@/services/userService";
-// HALKAN KA BEDDEL:
-import { getEmployeesService } from "/src/services/employees/employeeService.js";
-import { toast } from "sonner"; // Sonner Toast
+// 🛠️ HALKAN WAXAAN KU SAXAY IMPORT-KA (Magaca wuxuu noqday getEmployees)
+import { getEmployeesService as getEmployees } from "/src/services/employees/employeeService.js";
+import { toast } from "sonner"; 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger,
+  DialogDescription // 🌟 Waxaan soo dhoofisay kan si digniinta loo demiyo
+} from "@/components/ui/dialog";
 import { 
   AlertDialog, 
   AlertDialogAction, 
@@ -15,10 +22,17 @@ import {
   AlertDialogHeader, 
   AlertDialogTitle 
 } from "@/components/ui/alert-dialog";
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table"; // 🎨 Shadcn Table Components
 import { Plus, Search, Edit2, Trash2 } from "lucide-react";
 import CreateUserForm from "./CreateUser";
 
-// SHADCN PAGINATION IMPORT
 import {
   Pagination,
   PaginationContent,
@@ -34,16 +48,20 @@ export default function UsersList() {
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [userToDelete, setUserToDelete] = useState(null); // State-ka user-ka la tirtirayo
+  const [userToDelete, setUserToDelete] = useState(null); 
 
-  // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
   const fetchData = async () => {
-    const [u, e] = await Promise.all([getUsers(), getEmployees()]);
-    setUsers(u);
-    setEmployees(e);
+    try {
+      const [u, e] = await Promise.all([getUsers(), getEmployees()]);
+      setUsers(u);
+      setEmployees(e);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      toast.error("Failed to load user or employee data");
+    }
   };
 
   useEffect(() => {
@@ -67,7 +85,6 @@ export default function UsersList() {
     return filteredData.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredData, currentPage]);
 
-  // Function-ka Tirtirista oo la casriyeeyay
   const handleDelete = async () => {
     if (!userToDelete) return;
     try {
@@ -97,7 +114,13 @@ export default function UsersList() {
           </DialogTrigger>
           <DialogContent className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
             <DialogHeader>
-              <DialogTitle className="text-[#1e3a8a] dark:text-blue-400">{selectedUser ? "Edit" : "Add"} User</DialogTitle>
+              <DialogTitle className="text-[#1e3a8a] dark:text-blue-400">
+                {selectedUser ? "Edit" : "Add"} User
+              </DialogTitle>
+              {/* 🌟 WAXAAN HALKAN KU DARNAY KAN SI DIGNIINTU U BAXDO LAAKIIN HUFNAANTA LOGOONNA KEEPO */}
+              <DialogDescription className="sr-only">
+                Fill in the user configuration data details.
+              </DialogDescription>
             </DialogHeader>
             <CreateUserForm 
                 employees={employees} 
@@ -120,53 +143,51 @@ export default function UsersList() {
         />
       </div>
 
-      {/* DATA TABLE */}
+      {/* DATA TABLE (SHADCN STYLE) */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-[#1e3a8a] dark:bg-slate-800 text-white dark:text-slate-100 text-xs uppercase tracking-widest font-bold">
-              <tr>
-                <th className="p-4">Name</th>
-                <th className="p-4">Role</th>
-                <th className="p-4">Status</th>
-                <th className="p-4 text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {paginatedData.map((u) => (
-                <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                  <td className="p-4 font-semibold text-slate-800 dark:text-slate-200">{u.fullName}</td>
-                  <td className="p-4 text-sm text-slate-600 dark:text-slate-300">{u.role}</td>
-                  <td className="p-4 text-sm">
-                    <span className={`px-2.5 py-0.5 rounded-full font-bold text-xs border ${
-                      u.isActive 
-                        ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800" 
-                        : "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800"
-                    }`}>
-                      {u.isActive ? "Active" : "Inactive"}
-                    </span>
-                  </td>
-                  <td className="p-4 text-center">
-                    <div className="flex justify-center gap-2">
-                      <button 
-                        onClick={() => { setSelectedUser(u); setOpen(true); }} 
-                        className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-all"
-                      >
-                        <Edit2 size={16}/>
-                      </button>
-                      <button 
-                        onClick={() => setUserToDelete(u)} 
-                        className="p-2 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-all"
-                      >
-                        <Trash2 size={16}/>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table>
+          <TableHeader className="bg-[#1e3a8a] dark:bg-slate-800 text-white dark:text-slate-100 text-xs uppercase tracking-widest font-bold">
+            <TableRow className="hover:bg-[#1e3a8a]/90">
+              <TableHead className="text-white p-4">Name</TableHead>
+              <TableHead className="text-white p-4">Role</TableHead>
+              <TableHead className="text-white p-4">Status</TableHead>
+              <TableHead className="text-white p-4 text-center">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody className="divide-y divide-slate-100 dark:divide-slate-800">
+            {paginatedData.map((u) => (
+              <TableRow key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                <TableCell className="p-4 font-semibold text-slate-800 dark:text-slate-200">{u.fullName}</TableCell>
+                <TableCell className="p-4 text-sm text-slate-600 dark:text-slate-300">{u.role}</TableCell>
+                <TableCell className="p-4 text-sm">
+                  <span className={`px-2.5 py-0.5 rounded-full font-bold text-xs border ${
+                    u.isActive 
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800" 
+                      : "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800"
+                  }`}>
+                    {u.isActive ? "Active" : "Inactive"}
+                  </span>
+                </TableCell>
+                <TableCell className="p-4 text-center">
+                  <div className="flex justify-center gap-2">
+                    <button 
+                      onClick={() => { setSelectedUser(u); setOpen(true); }} 
+                      className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-all"
+                    >
+                      <Edit2 size={16}/>
+                    </button>
+                    <button 
+                      onClick={() => setUserToDelete(u)} 
+                      className="p-2 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-all"
+                    >
+                      <Trash2 size={16}/>
+                    </button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
         
         {/* ALERT DIALOG */}
         <AlertDialog open={!!userToDelete} onOpenChange={() => setUserToDelete(null)}>

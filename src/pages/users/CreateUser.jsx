@@ -1,18 +1,39 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
-import { doc, setDoc, updateDoc } from "firebase/firestore";
-import { Loader2 } from "lucide-react";
+import { doc, setDoc, updateDoc, collection, getDocs } from "firebase/firestore";
+import { Loader2, AlertCircle } from "lucide-react"; // 🌟 Waxaan soo qaatay icon-ka Alert-ka
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // 🌟 Soo dhoofso Shadcn Alert
 
-export default function CreateUserForm({ editData, employees, onSuccess }) {
+export default function CreateUserForm({ editData, employees = [], onSuccess }) {
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(""); // 🌟 State-kan ayaa xajinaya fariinta khaldka ee Alert-ka
+  const [existingUserEmployeeIds, setExistingUserEmployeeIds] = useState([]);
   const [form, setForm] = useState({
     employeeId: "", email: "", password: "", confirmPassword: "", role: "", isActive: true,
   });
+
+  // 1. Soo qaad dhamaan employeeId-yada hore koonto u lahaa si looga reebo liiska
+  useEffect(() => {
+    const fetchExistingUsers = async () => {
+      try {
+        const snap = await getDocs(collection(db, "users"));
+        const ids = snap.docs.map(doc => doc.data().employeeId).filter(Boolean);
+        setExistingUserEmployeeIds(ids);
+      } catch (err) {
+        console.error("Error fetching existing users:", err);
+      }
+    };
+    
+    if (!editData) {
+      fetchExistingUsers();
+    }
+  }, [editData]);
 
   useEffect(() => {
     if (editData) {
@@ -25,6 +46,12 @@ export default function CreateUserForm({ editData, employees, onSuccess }) {
     }
   }, [editData]);
 
+  // 2. Shaandhee shaqaalaha: Ka reeb kuwa akoonka hore u lahaa (Haddii aan la joogin Edit Mode)
+  const availableEmployees = useMemo(() => {
+    if (editData) return employees; 
+    return employees.filter(emp => !existingUserEmployeeIds.includes(emp.id));
+  }, [employees, existingUserEmployeeIds, editData]);
+
   const handleEmployeeChange = (id) => {
     const emp = employees.find((e) => e.id === id);
     if (emp) setForm((prev) => ({ ...prev, employeeId: id, email: emp.email || "" }));
@@ -33,6 +60,17 @@ export default function CreateUserForm({ editData, employees, onSuccess }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isLoading) return;
+    setError(""); // 🌟 Mar kasta oo foomka la re-submit gareeyo marka hore nadiifi error-ka hore
+
+    if (!form.employeeId) {
+      setError("Fadlan marka hore dooro qof shaqaale ah sxb!");
+      return;
+    }
+
+    if (!form.role) {
+      setError("Fadlan u dooro door (Role) isticmaalahan sxb!");
+      return;
+    }
 
     try {
       setIsLoading(true);
@@ -41,8 +79,19 @@ export default function CreateUserForm({ editData, employees, onSuccess }) {
           role: form.role,
           isActive: form.isActive,
         });
+        toast.success("User updated successfully");
       } else {
-        if (form.password !== form.confirmPassword) throw new Error("Passwords match-maayaan!");
+        if (form.password.length < 6) {
+          setError("Khafiif sxb! Password-ku waa inuu ka koobnaadaa ugu yaraan 6 xaraf.");
+          setIsLoading(false);
+          return;
+        }
+
+        if (form.password !== form.confirmPassword) {
+          setError("Cillad: Labada Password isma laha (Match ma noqon)!");
+          setIsLoading(false);
+          return;
+        }
         
         const userCred = await createUserWithEmailAndPassword(auth, form.email, form.password);
         await setDoc(doc(db, "users", userCred.user.uid), {
@@ -52,10 +101,29 @@ export default function CreateUserForm({ editData, employees, onSuccess }) {
           isActive: form.isActive,
           createdAt: new Date().toISOString()
         });
+        toast.success("User account created successfully");
       }
       onSuccess();
     } catch (err) {
-      alert(err.message);
+      console.error("Firebase Auth Error Details:", err.code, err.message);
+      
+      // 🌟 Halkan waxaan ku sifeeyay khaladaadka si loogu soo bandhigo Shadcn Alert component-kaaga
+      switch (err.code) {
+        case "auth/email-already-in-use":
+          setError("Email-kan horey ayaa loogu sameeyay akoon kale!");
+          break;
+        case "auth/invalid-email":
+          setError("Email-ka shaqaalahan ma ahan mid sax ah (Invalid Email format)!");
+          break;
+        case "auth/operation-not-allowed":
+          setError("Cillad Firebase: Email/Password Authentication kalama soo shidin Firebase Console-kaaga.");
+          break;
+        case "auth/weak-password":
+          setError("Password-ka aad dooratay waa mid daciif ah! (Ugu yaraan 6 xaraf ka dhig).");
+          break;
+        default:
+          setError(`Nidaamka waa uu diiday inuu abuuro user: ${err.message}`);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -63,16 +131,32 @@ export default function CreateUserForm({ editData, employees, onSuccess }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 text-slate-900 dark:text-slate-100">
+      
+      {/* 🌟 SHADCN ALERT: Wuxuu soo baxayaa oo kaliya marka uu error jiro (Sida ku xusan Screenshot 2026-06-22 064447_2.png) */}
+      {error && (
+        <Alert variant="destructive" className="bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 border-red-200 dark:border-red-900">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle className="font-bold">Error Occurred</AlertTitle>
+          <AlertDescription className="text-xs font-medium">
+            {error}
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="space-y-1">
         <Label>Select Employee</Label>
         <Select value={form.employeeId} onValueChange={handleEmployeeChange} disabled={!!editData}>
           <SelectTrigger className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
-            <SelectValue placeholder="Dooro Shaqaalaha" />
+            <SelectValue placeholder={editData ? "Employee locked" : "Dooro Shaqaalaha"} />
           </SelectTrigger>
           <SelectContent className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
-            {employees.map((e) => (
-              <SelectItem key={e.id} value={e.id}>{e.fullName}</SelectItem>
-            ))}
+            {availableEmployees.length === 0 ? (
+              <div className="p-2 text-xs text-center text-slate-500">Dhamaan shaqaalaha akoonno waa u furan yihiin</div>
+            ) : (
+              availableEmployees.map((e) => (
+                <SelectItem key={e.id} value={e.id}>{e.fullName}</SelectItem>
+              ))
+            )}
           </SelectContent>
         </Select>
       </div>

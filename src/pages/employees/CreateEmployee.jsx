@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner"; // 🌟 Waxaan keennay Shadcn Toast
 
 export default function CreateEmployee({ editData, actions, onSuccess }) {
   const { addEmployee, editEmployee } = actions;
@@ -27,19 +28,23 @@ export default function CreateEmployee({ editData, actions, onSuccess }) {
 
   const submit = async () => {
     try {
-      if (!form.fullName || !form.email) return alert("Please fill required fields");
+      // 🌟 Validation Alert
+      if (!form.fullName || !form.email) {
+        return toast.error("Fadlan buuxi meelaha loo baahan yahay sxb!");
+      }
       setIsSubmitting(true);
 
       if (editData) {
         await editEmployee(editData.id, form);
-        alert("Employee updated successfully");
+        toast.success("Xogta shaqaalaha waa la cusbooneysiiyay (Updated)!");
       } else {
         await addEmployee(form);
-        alert("Employee created successfully");
+        toast.success("Shaqaalaha cusub si guul leh ayaa loo kaydiyay!");
       }
       onSuccess?.(); 
     } catch (err) {
-      alert(err.message);
+      // 🌟 Error Alert
+      toast.error(`Cillad ayaa dhacday: ${err.message}`);
     } finally {
       setIsSubmitting(false);
     }
