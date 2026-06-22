@@ -692,7 +692,6 @@ export default function ProjectReport() {
           </CardContent>
         </Card>
       )}
-
     </div>
   );
 }

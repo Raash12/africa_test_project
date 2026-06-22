@@ -11,8 +11,8 @@ import { toast } from "sonner";
 import { Plus, Trash2, Package, Info, AlertCircle, Landmark, ArrowUpRight } from "lucide-react";
 
 const REGIONS_DATA = {
-  "Banadir": ["Abdiaziz", "Bondhere", "Daynile", "Dharkenley", "Hamar-Jajab", "Hamar-Weyne", "Hodan", "Howl-Wadag", "Huriwaa", "Karaan", "Shangani", "Shibis", "Waberi", "Warta-Nabada", "Yaqshid", "Kaxda", "Garasbaley", "Kahda"],
-  "Gedo": ["Bardhere", "Belet-Xaawo", "Dolow", "Elwak", "Garbaharey", "Luuq"],
+  "Banadir": ["Abdiaziz", "Bondhere", "Daynile", "DhElwakarkenley", "Hamar-Jajab", "Hamar-Weyne", "Hodan", "Howl-Wadag", "Huriwaa", "Karaan", "Shangani", "Shibis", "Waberi", "Warta-Nabada", "Yaqshid", "Kaxda", "Garasbaley", "Kahda"],
+  "Gedo": ["Bardhere", "Belet-Xaawo", "Dolow", "", "Garbaharey", "Luuq"],
   "Hiraan": ["Beletweyne", "Bulo Burde", "Jalalaqsi", "Mataban"],
   "Bay": ["Baidoa", "Burhakaba", "Dinsoor", "Qansaxdheere"],
   "Bakool": ["Hudur", "Rabdhure", "Elbarde", "Tiyeglow"],
