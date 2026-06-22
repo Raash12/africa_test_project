@@ -17,7 +17,6 @@ import Programs from "@/pages/program/ListProgram";
 import Donors from "@/pages/donors/ListDonor";
 import Grants from "@/pages/grants/ListGrant"; 
 import Projects from "@/pages/projects/ListProject";
-import Beneficiaries from "@/pages/beneficiaries/ListBeneficiary"; 
 import ListSupplier from "@/pages/Suppliers/ListSupplier";
 
 // 🌟 HALKAN WAXAAN KAGA DHIGNAY `@/` DHAMMAAN KUWII DHIBAATADA WADAY
