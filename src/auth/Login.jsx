@@ -98,7 +98,7 @@ export default function Login() {
           </div>
 
           <CardTitle className="text-2xl font-bold text-slate-900 uppercase tracking-tight">
-            NGO ERP Login
+            Africa Ihsan Aid
           </CardTitle>
 
           <CardDescription className="text-xs text-slate-500">
