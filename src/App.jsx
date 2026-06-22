@@ -17,9 +17,10 @@ import Programs from "@/pages/program/ListProgram";
 import Donors from "@/pages/donors/ListDonor";
 import Grants from "@/pages/grants/ListGrant"; 
 import Projects from "@/pages/projects/ListProject";
-import ListSupplier from "@/pages/Suppliers/ListSupplier";
 
-// 🌟 HALKAN WAXAAN KAGA DHIGNAY `@/` DHAMMAAN KUWII DHIBAATADA WADAY
+// 🌟 WAA LAGA SAARAY IMPORT-KII BENEFICIARIES EE LINE-KA 18
+
+import ListSupplier from "@/pages/Suppliers/ListSupplier";
 import ListPurchaseOrder from "@/pages/Purchase/PurchaseOrder/ListPurchaseOrder"; 
 import ListPurchaseInvoice from "@/pages/Purchase/PurchaseInvoice/ListPurchaseInvoice";
 import ListPaymentEntry from "@/pages/Payment/ListPaymentEntry";
@@ -46,7 +47,7 @@ import CashFlowStatement from "@/pages/FinancialReport/CashFlowStatement";
 import GrantReport from "@/pages/reports/GrantReport";
 import ProjectReport from "@/pages/reports/ProjectReport";
 
-// 🔐 PROTECTED ROUTE: Waxay hortaagan tahay boggaga xasaasiga ah inta loading-ku jiro
+// 🔐 PROTECTED ROUTE
 function ProtectedRoute({ children }) {
   const { currentUser, loading } = useAuth(); 
 
@@ -68,7 +69,6 @@ function ProtectedRoute({ children }) {
 export default function App() {
   const { currentUser, loading } = useAuth(); 
 
-  // 🌟 Halkan haddii bogga la refresh gareeyo, meeshaan ayuu ku hakanayaa si uusan login u aadin
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen bg-slate-50 dark:bg-slate-950">
@@ -103,12 +103,13 @@ export default function App() {
         <Route path="users/create" element={<CreateUser />} />
         <Route path="roles" element={<UserRoles />} />
 
-        {/* LOGISTICS, PROGRAMS, DONORS, GRANTS, PROJECTS, BENEFICIARIES & ITEMS */}
+        {/* LOGISTICS, PROGRAMS, DONORS, GRANTS, PROJECTS & ITEMS */}
         <Route path="programs" element={<Programs />} />
         <Route path="donors" element={<Donors />} />
         <Route path="grants" element={<Grants />} /> 
         <Route path="projects" element={<Projects />} />
-        <Route path="beneficiaries" element={<Beneficiaries />} /> 
+        
+        {/* 🌟 WAA LAGA SAARAY ROUTE-KII BENEFICIARIES MEESHAAN */}
         
         <Route path="items" element={<ItemsPage />} />
         <Route path="suppliers" element={<ListSupplier />} />
