@@ -1,6 +1,7 @@
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { Loader2 } from "lucide-react"; // 🌟 Waxaan keenay spinner
 
 import Login from "@/auth/Login";
 import DashboardLayout from "@/layouts/DashboardLayout";
@@ -44,9 +45,17 @@ import CashFlowStatement from "@/pages/FinancialReport/CashFlowStatement";
 import GrantReport from "@/pages/reports/GrantReport";
 import ProjectReport from "@/pages/reports/ProjectReport";
 
-// 🔐 PROTECTED ROUTE: Hubinta isticmaalaha oo kaliya, looma baahna shaashad hortaagan
+// 🔐 PROTECTED ROUTE: Waxay hortaagan tahay boggaga xasaasiga ah inta loading-ku jiro
 function ProtectedRoute({ children }) {
-  const { currentUser } = useAuth();
+  const { currentUser, loading } = useAuth(); // 🌟 Hubi in loading uu ku jiro AuthContext-kaaga
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-slate-50 dark:bg-slate-950">
+        <Loader2 className="animate-spin text-[#1e3a8a] dark:text-blue-500" size={40} />
+      </div>
+    );
+  }
 
   if (!currentUser) {
     return <Navigate to="/login" replace />;
@@ -56,11 +65,20 @@ function ProtectedRoute({ children }) {
 }
 
 export default function App() {
-  const { currentUser } = useAuth(); // Waxaan ka saarnay 'loading' state-kii halkan si uusan u hakan
+  const { currentUser, loading } = useAuth(); // 🌟 Dib u soo celi loading-kii halkan
+
+  // 🌟 Halkan haddii bogga la refresh gareeyo, loogin u carari mayo, meeshaan ayuu ku hakanayaa
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-slate-50 dark:bg-slate-950">
+        <Loader2 className="animate-spin text-[#1e3a8a] dark:text-blue-500" size={40} />
+      </div>
+    );
+  }
 
   return (
     <Routes>
-      {/* LOGIN ROUTE: Marka login la taabto isla markiiba wuxuu u wareegayaa Dashboard-ka */}
+      {/* LOGIN ROUTE */}
       <Route 
         path="/login" 
         element={currentUser ? <Navigate to="/" replace /> : <Login />} 
@@ -68,7 +86,7 @@ export default function App() {
 
       <Route
         path="/"
-        element={
+        element = {
           <ProtectedRoute>
             <DashboardLayout />
           </ProtectedRoute>
